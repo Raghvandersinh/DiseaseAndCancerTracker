@@ -1,0 +1,35 @@
+{% extends 'base.html' %} 
+{% load static %}
+{% block title %}Home Page{% endblock %}
+
+{% block content %}
+<style>
+    body {
+        background-image: url("{% static 'Images/Diseases2.jpg' %}");
+        background-size: cover;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+    }
+    .jumbotron {
+        background-color: rgba(255, 255, 255, 0.8);
+        padding: 2rem 1rem;
+        border-radius: 0.3rem;
+    }
+</style>
+<div class="jumbotron text-center">
+    <h1 class="display-4">Welcome to the Disease Tracker App</h1>
+    <p class="lead">Please choose a disease to track:</p>
+</div>
+<div class="container">
+    <div class="row">
+        <div class="col-md-6 offset-md-3">
+            <ul class="list-group">
+                <li class="list-group-item">
+                    <a href="{% url 'LungCancerTracker' %}">Lung Cancer</a>
+                </li>
+                <!-- Add more diseases here as you implement them -->
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
