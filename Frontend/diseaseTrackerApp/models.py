@@ -11,9 +11,8 @@ class LungCancerTrackerModel(models.Model):
         (0, 'NO'),
     ]
     
-    name = models.CharField(max_length=100)
     age = models.IntegerField()
-    gender = models.CharField(max_length=1, choices=GENDER_CHOICES)
+    gender = models.IntegerField(choices=GENDER_CHOICES)
     smoking = models.IntegerField(choices=YES_NO_CHOICES)
     yellow_fingers = models.IntegerField(choices=YES_NO_CHOICES)
     anxiety = models.IntegerField(choices=YES_NO_CHOICES)
@@ -27,7 +26,5 @@ class LungCancerTrackerModel(models.Model):
     shortness_of_breath = models.IntegerField(choices=YES_NO_CHOICES)
     swallowing_difficulty = models.IntegerField(choices=YES_NO_CHOICES)
     chest_pain = models.IntegerField(choices=YES_NO_CHOICES)
-    lung_cancer = models.IntegerField(choices=YES_NO_CHOICES)
 
-    def __str__(self):
-        return self.name
+    
