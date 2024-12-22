@@ -20,18 +20,23 @@ import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
 import kaggle
+import joblib
 
 torch.manual_seed(42)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-csvFilePath = Path('./dataset/survey lung cancer.csv')
-if csvFilePath.exists():
-  print("File already exists")
-else:
-  os.makedirs('./dataset', exist_ok=True)
-  kaggle.api.dataset_download_files ('mysarahmadbhat/lung-cancer', path='./dataset', unzip = True)
+# Define the base path relative to the script's location
+base_path = Path(__file__).resolve().parent.parent
 
-dataset = pd.read_csv('dataset/survey lung cancer.csv')
+# Define the path to the dataset
+csvFilePath = base_path / 'dataset' / 'survey lung cancer.csv'
+
+# Check if the dataset file exists
+if not csvFilePath.exists():
+    raise FileNotFoundError(f"Dataset file not found: {csvFilePath}")
+
+# Load the dataset
+dataset = pd.read_csv(csvFilePath)
 
 print(dataset.head())
 
@@ -156,6 +161,8 @@ for epoch in range(epoch):
                   f"Recall: {test_metrics_dict['recall']:.4f}, F1: {test_metrics_dict['f1']:.4f}, "
                   f"ROC-AUC: {test_metrics_dict['roc_auc']:.4f}"))
 
+
+
 def plot_metrics(metric_dict, metric_name, title):
     plt.figure(figsize=(10, 5))
     plt.plot(train_metrics[metric_name], label=f'Train {metric_name}')
@@ -172,3 +179,29 @@ plot_metrics(train_metrics, 'loss', 'Training and Test Loss')
 plot_metrics(train_metrics, 'accuracy', 'Training and Test Accuracy')
 plot_metrics(train_metrics, 'f1', 'Training and Test F1-Score')
 plot_metrics(train_metrics, 'roc_auc', 'Training and Test ROC-AUC')
+
+
+# Define the path to save the scaler
+scaler_save_path = base_path / 'Models' / 'SavedModels' / 'age_scaler.pkl'
+
+# Check if the scaler file already exists
+if scaler_save_path.exists():
+    print("age_scaler.pkl already exists")
+else:
+    scaler = StandardScaler()
+    df['AGE'] = scaler.fit_transform(df[['AGE']])
+    scaler_save_path.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(scaler, scaler_save_path)
+    print(f"Scaler saved to {scaler_save_path}")
+
+model_save_path = base_path / 'Models' / 'SavedModels' / 'lung_cancer_model.pth'
+
+# Check if the directory exists, if not, create it
+model_save_path.parent.mkdir(parents=True, exist_ok=True)
+
+# Check if the model file already exists
+if model_save_path.exists():
+    print("lung_cancer_model.pth already exists")
+else:
+    torch.save(model.state_dict(), model_save_path)
+    print(f"Model saved to {model_save_path}")
