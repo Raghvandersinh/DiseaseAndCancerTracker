@@ -185,14 +185,12 @@ plot_metrics(train_metrics, 'roc_auc', 'Training and Test ROC-AUC')
 scaler_save_path = base_path / 'Models' / 'SavedModels' / 'age_scaler.pkl'
 
 # Check if the scaler file already exists
-if scaler_save_path.exists():
-    print("age_scaler.pkl already exists")
-else:
-    scaler = StandardScaler()
-    df['AGE'] = scaler.fit_transform(df[['AGE']])
-    scaler_save_path.parent.mkdir(parents=True, exist_ok=True)
-    joblib.dump(scaler, scaler_save_path)
-    print(f"Scaler saved to {scaler_save_path}")
+
+scaler = StandardScaler()
+df['AGE'] = scaler.fit_transform(df[['AGE']])
+scaler_save_path.parent.mkdir(parents=True, exist_ok=True)
+joblib.dump(scaler, scaler_save_path)
+print(f"Scaler saved to {scaler_save_path}")
 
 model_save_path = base_path / 'Models' / 'SavedModels' / 'lung_cancer_model.pth'
 
@@ -200,8 +198,6 @@ model_save_path = base_path / 'Models' / 'SavedModels' / 'lung_cancer_model.pth'
 model_save_path.parent.mkdir(parents=True, exist_ok=True)
 
 # Check if the model file already exists
-if model_save_path.exists():
-    print("lung_cancer_model.pth already exists")
-else:
-    torch.save(model.state_dict(), model_save_path)
-    print(f"Model saved to {model_save_path}")
+
+torch.save(model.state_dict(), model_save_path)
+print(f"Model saved to {model_save_path}")
