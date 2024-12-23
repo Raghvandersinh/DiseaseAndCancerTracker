@@ -7,6 +7,7 @@ from pathlib import Path
 from asgiref.sync import sync_to_async
 import joblib
 from sklearn.preprocessing import StandardScaler
+import pandas as pd
 
 # Add the directory containing the Models module to the system path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
@@ -58,10 +59,11 @@ async def LungCancerTracker(request):
             else:
                 print(f"Scaler mean: {scaler.mean_}, var: {scaler.var_}")
             
-            input_data[1] = scaler.transform([[input_data[1]]])[0][0]
-            print(input_data[1])
-            # Debugging: Print the age after transformation
-            print(f"Age after transformation: {input_data[1]}")
+            # Replace age with the scaler mean
+            input_data[1] = scaler.mean_.item()
+            
+            # Debugging: Print the age after replacement
+            print(f"Age after replacement: {input_data[1]}")
             
             # Debugging: Print input data
             print(f"Input data: {input_data}")
