@@ -6,8 +6,6 @@ import sys
 from pathlib import Path
 from asgiref.sync import sync_to_async
 import joblib
-from sklearn.preprocessing import StandardScaler
-import pandas as pd
 
 # Add the directory containing the Models module to the system path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
