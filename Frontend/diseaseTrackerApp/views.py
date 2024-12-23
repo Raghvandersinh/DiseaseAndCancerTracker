@@ -1,68 +1,90 @@
-import os
-from pathlib import Path
+from django.shortcuts import render
+from .forms import LungCancerForm
 import torch
-import torch.nn as nn
-from django.shortcuts import render, redirect
-from .models import LungCancerTrackerModel
-from .forms import LungCancerTrackerForm
+import os
+import sys
+from pathlib import Path
+from asgiref.sync import sync_to_async
 import joblib
+from sklearn.preprocessing import StandardScaler
 
-class LungCancerClassifier(nn.Module):
-    def __init__(self, input_size):
-        super(LungCancerClassifier, self).__init__()
-        self.layers = nn.Sequential(
-            nn.Linear(input_size, 64),
-            nn.ReLU(),
-            nn.Linear(64, 32),
-            nn.ReLU(),
-            nn.Linear(32, 1),
-            nn.Sigmoid()
-        )
-    def forward(self, x):
-        return self.layers(x)
+# Add the directory containing the Models module to the system path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-def load_model():
-    model = LungCancerClassifier(input_size=15)  # Adjust input_size based on your model
-    base_path = Path(__file__).resolve().parent.parent.parent
-    model_path = base_path / 'Models' / 'SavedModels' / 'lung_cancer_model.pth'
-    print(f"Model path: {model_path}")  # Print the model path for debugging
-    if not model_path.exists():
-        raise FileNotFoundError(f"Model file not found: {model_path}")
-    model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
-    model.eval()
-    return model
-
-def load_scaler():
-    base_path = Path(__file__).resolve().parent.parent.parent
-    scaler_path = base_path / 'Models' / 'SavedModels' / 'age_scaler.pkl'
-    if not scaler_path.exists():
-        raise FileNotFoundError(f"Scaler file not found: {scaler_path}")
-    scaler = joblib.load(scaler_path)
-    return scaler
-
-def predict_lung_cancer(data):
-    model = load_model()
-    scaler = load_scaler()
-    data[0] = scaler.transform([[data[0]]])[0][0]  # Apply scaler to the age field
-    data_tensor = torch.tensor(data, dtype=torch.float32)
-    with torch.no_grad():
-        output = model(data_tensor.unsqueeze(0))
-        prediction = (output > 0.5).float().item()
-    return prediction
+from Models.lungcancermodel import LungCancerClassifier
 
 def home(request):
-    return render(request, "home.html")
+    return render(request, 'home.html')
 
-def LungCancerTracker(request):
+async def LungCancerTracker(request):
+    result = None
     if request.method == 'POST':
-        form = LungCancerTrackerForm(request.POST)
+        form = LungCancerForm(request.POST)
         if form.is_valid():
-            form.save()
-            data = list(form.cleaned_data.values())
-            prediction = predict_lung_cancer(data)
-            result = "Positive" if prediction == 1.0 else "Negative"
-            return render(request, "LungCancerTrackerModel.html", {'form': form, 'result': result})
+            # Extract input data from form
+            input_data = [
+                int(form.cleaned_data['gender']),
+                int(form.cleaned_data['age']),  # Ensure age is an int
+                int(form.cleaned_data['smoking']),
+                int(form.cleaned_data['yellow_fingers']),
+                int(form.cleaned_data['anxiety']),
+                int(form.cleaned_data['peer_pressure']),
+                int(form.cleaned_data['chronic_disease']),
+                int(form.cleaned_data['fatigue']),
+                int(form.cleaned_data['allergy']),
+                int(form.cleaned_data['wheezing']),
+                int(form.cleaned_data['alcohol_consuming']),
+                int(form.cleaned_data['coughing']),
+                int(form.cleaned_data['shortness_of_breath']),
+                int(form.cleaned_data['swallowing_difficulty']),
+                int(form.cleaned_data['chest_pain'])
+            ]
+            
+            # Convert gender to numerical value
+            input_data[0] = 1 if input_data[0] == 1 else 0
+            
+            # Load the scaler and apply it to the age feature
+            base_path = Path(__file__).resolve().parent.parent.parent
+            scaler_path = base_path / 'Models' / 'SavedModels' / 'age_scaler.pkl'
+            scaler = joblib.load(scaler_path)
+            
+            # Debugging: Print the scaler and age before transformation
+            print(f"Scaler: {scaler}")
+            print(f"Age before transformation: {input_data[1]}")
+            
+            # Ensure the scaler is fitted
+            if not hasattr(scaler, 'mean_'):
+                print("Scaler is not fitted.")
+            else:
+                print(f"Scaler mean: {scaler.mean_}, var: {scaler.var_}")
+            
+            input_data[1] = scaler.transform([[input_data[1]]])[0][0]
+            print(input_data[1])
+            # Debugging: Print the age after transformation
+            print(f"Age after transformation: {input_data[1]}")
+            
+            # Debugging: Print input data
+            print(f"Input data: {input_data}")
+            
+            # Load model and make prediction asynchronously
+            result = await sync_to_async(predict_cancer)(input_data)
     else:
-        form = LungCancerTrackerForm()
-    items = LungCancerTrackerModel.objects.all()
-    return render(request, "LungCancerTrackerModel.html", {'form': form, 'LungCancerTrackerModel': items})
+        form = LungCancerForm()
+    
+    return render(request, 'LungCancerTrackerModel.html', {'form': form, 'result': result})
+
+def predict_cancer(input_data):
+    model = LungCancerClassifier()  # Remove input_dim argument
+    base_path = Path(__file__).resolve().parent.parent.parent
+    model_path = base_path / 'Models' / 'SavedModels' / 'lung_cancer_model.pth'
+    model.load_state_dict(torch.load(model_path))
+    prediction = model.predict(input_data)
+    
+    # Debugging: Print model output
+    print(f"Model output: {prediction}")
+    
+    # Set result message based on prediction
+    if prediction == 1:
+        return "Yes, you have signs of having cancer. Consult with your doctor."
+    else:
+        return "No, you don't have cancer."

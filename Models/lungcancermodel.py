@@ -38,16 +38,16 @@ if not csvFilePath.exists():
 # Load the dataset
 dataset = pd.read_csv(csvFilePath)
 
-print(dataset.head())
+# print(dataset.head())
 
 df = pd.DataFrame(dataset)
 label_encoder = LabelEncoder()
 df['GENDER'] = label_encoder.fit_transform(df['GENDER'])
 df['LUNG_CANCER'] = label_encoder.fit_transform(df['LUNG_CANCER'])
-print(df.head())
+# print(df.head())
 
 lung_cancer_counts = df['LUNG_CANCER'].value_counts()
-print(lung_cancer_counts)
+# print(lung_cancer_counts)
 
 def add_noise(df, column, noise_factor = 0.05):
     noise = np.random.normal(0, noise_factor * df[column].std(), df[column].shape[0])
@@ -64,15 +64,15 @@ df_minority = df[df['LUNG_CANCER'] == 0]
 df_minority_upsampled=  resample(df_minority, replace=True, n_samples=len(df_majority), random_state=123)
 df_balanced = pd.concat([df_majority, df_minority_upsampled])
 
-print(df_balanced['LUNG_CANCER'].value_counts())
-print(df_balanced)
+# print(df_balanced['LUNG_CANCER'].value_counts())
+# print(df_balanced)
 binary_columns = ['SMOKING', 'YELLOW_FINGERS', 'ANXIETY', 'PEER_PRESSURE',
                   'CHRONIC DISEASE', 'FATIGUE ', 'ALLERGY ', 'WHEEZING',
                   'ALCOHOL CONSUMING', 'COUGHING', 'SHORTNESS OF BREATH',
                   'SWALLOWING DIFFICULTY', 'CHEST PAIN']
 for column in binary_columns:
     df_balanced[column] = df_balanced[column].map({1:0, 2:1})
-print(df_balanced.head())
+# print(df_balanced.head())
 
 features = df_balanced.drop('LUNG_CANCER', axis=1).to_numpy()
 target = df_balanced['LUNG_CANCER'].to_numpy()
@@ -83,20 +83,29 @@ y_train = torch.tensor(y_train, dtype=torch.float32)
 y_test = torch.tensor(y_test, dtype=torch.float32)
 
 class LungCancerClassifier(nn.Module):
-  def __init__(self, input_size):
-    super(LungCancerClassifier, self).__init__()
-    self.layers = nn.Sequential(
-        nn.Linear(input_size, 64),
-        nn.ReLU(),
-        nn.Linear(64, 32),
-        nn.ReLU(),
-        nn.Linear(32, 1),
-        nn.Sigmoid()
-    )
-  def forward(self, x):
-      return self.layers(x)
+    def __init__(self):
+        super(LungCancerClassifier, self).__init__()
+        self.layers = nn.Sequential(
+            nn.Linear(15, 64),  # Assuming 15 input features
+            nn.ReLU(),
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Linear(32, 1),
+            nn.Sigmoid()
+        )
 
-model = LungCancerClassifier(X_train.shape[1])
+    def forward(self, x):
+        return self.layers(x)
+
+    def predict(self, input_data):
+        self.eval()
+        with torch.no_grad():
+            input_tensor = torch.tensor(input_data, dtype=torch.float32).unsqueeze(0)  # Add batch dimension
+            output = self(input_tensor)
+            prediction = (output >= 0.5).float()
+            return prediction.item()
+
+model = LungCancerClassifier()
 criterion = nn.BCELoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
@@ -138,11 +147,11 @@ for epoch in range(epoch):
   train_metrics_dict = compute_metrics(y_train, train_pred, train_probs)
   for key, value in train_metrics_dict.items():
     train_metrics[key].append(value)
-  if (epoch+1) % 100 == 0:
-      print(f"Epoch {epoch + 1}, Train Loss: {loss.item():.4f}, "
-              f"Accuracy: {train_metrics_dict['accuracy']:.4f}, Precision: {train_metrics_dict['precision']:.4f}, "
-              f"Recall: {train_metrics_dict['recall']:.4f}, F1: {train_metrics_dict['f1']:.4f}, "
-              f"ROC-AUC: {train_metrics_dict['roc_auc']:.4f}")
+  # if (epoch+1) % 100 == 0:
+  #     print(f"Epoch {epoch + 1}, Train Loss: {loss.item():.4f}, "
+  #             f"Accuracy: {train_metrics_dict['accuracy']:.4f}, Precision: {train_metrics_dict['precision']:.4f}, "
+  #             f"Recall: {train_metrics_dict['recall']:.4f}, F1: {train_metrics_dict['f1']:.4f}, "
+  #             f"ROC-AUC: {train_metrics_dict['roc_auc']:.4f}")
 
   model.eval()
   with torch.inference_mode():
@@ -155,11 +164,11 @@ for epoch in range(epoch):
     test_metrics_dict = compute_metrics(y_test, test_pred, test_prob)
     for key, value in test_metrics_dict.items():
       test_metrics[key].append(value)
-    if (epoch+1) % 100 == 0:
-      print(print(f"Epoch {epoch + 1}, Test Loss: {test_loss.item():.4f}, "
-                  f"Accuracy: {test_metrics_dict['accuracy']:.4f}, Precision: {test_metrics_dict['precision']:.4f}, "
-                  f"Recall: {test_metrics_dict['recall']:.4f}, F1: {test_metrics_dict['f1']:.4f}, "
-                  f"ROC-AUC: {test_metrics_dict['roc_auc']:.4f}"))
+    # if (epoch+1) % 100 == 0:
+    #   print(print(f"Epoch {epoch + 1}, Test Loss: {test_loss.item():.4f}, "
+    #               f"Accuracy: {test_metrics_dict['accuracy']:.4f}, Precision: {test_metrics_dict['precision']:.4f}, "
+    #               f"Recall: {test_metrics_dict['recall']:.4f}, F1: {test_metrics_dict['f1']:.4f}, "
+    #               f"ROC-AUC: {test_metrics_dict['roc_auc']:.4f}"))
 
 
 
@@ -175,10 +184,10 @@ def plot_metrics(metric_dict, metric_name, title):
     plt.show()
 
 # Plot each metric
-plot_metrics(train_metrics, 'loss', 'Training and Test Loss')
-plot_metrics(train_metrics, 'accuracy', 'Training and Test Accuracy')
-plot_metrics(train_metrics, 'f1', 'Training and Test F1-Score')
-plot_metrics(train_metrics, 'roc_auc', 'Training and Test ROC-AUC')
+# plot_metrics(train_metrics, 'loss', 'Training and Test Loss')
+# plot_metrics(train_metrics, 'accuracy', 'Training and Test Accuracy')
+# plot_metrics(train_metrics, 'f1', 'Training and Test F1-Score')
+# plot_metrics(train_metrics, 'roc_auc', 'Training and Test ROC-AUC')
 
 
 # Define the path to save the scaler

@@ -1,4 +1,3 @@
-# filepath: /c:/MachineLearning/LungCancerTracker/Frontend/diseaseTrackerApp/urls.py
 from django.urls import path
 from . import views
 
