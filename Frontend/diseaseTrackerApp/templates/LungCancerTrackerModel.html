@@ -1,24 +1,12 @@
-{% extends "base.html" %} {%block content%}
-<h1> Lung Cancer Tracker</h1>
-<ul>
-    {% for LCTM in LungCancerTrackerModel %}
-    <li>
-        {{ LCTM.age }}
-    {{ LCTM.gender }}
-    {{ LCTM.smoking }}
-    {{ LCTM.yellow_fingers }}
-    {{ LCTM.anxiety }}
-    {{ LCTM.peer_pressure }}
-    {{ LCTM.chronic_disease }}
-    {{ LCTM.fatigue }}
-    {{ LCTM.allergy }}
-    {{ LCTM.wheezing }}
-    {{ LCTM.alcohol }}
-    {{ LCTM.coughing }}
-    {{ LCTM.shortness_of_breath }}
-    {{ LCTM.swallowing_difficulty }}
-    {{ LCTM.chest_pain }}
-    </li>
-    {% endfor %}
-</ul>
+{% extends "base.html" %} 
+{% block content %}
+<h1>Lung Cancer Tracker</h1>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Submit</button>
+</form>
+{% if result %}
+<h2>Prediction: {{ result }}</h2>
+{% endif %}
 {% endblock %}
