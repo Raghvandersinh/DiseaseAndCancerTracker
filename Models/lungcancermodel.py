@@ -58,6 +58,12 @@ def add_noise(df, column, noise_factor = 0.05):
 df = add_noise(df, 'AGE')
 scaler = StandardScaler()
 df['AGE'] = scaler.fit_transform(df[['AGE']])
+
+scaler_save_path = base_path / 'Models' / 'SavedModels' / 'age_scaler.pkl'
+scaler_save_path.parent.mkdir(parents=True, exist_ok=True)
+joblib.dump(scaler, scaler_save_path)
+print(f"Scaler saved to {scaler_save_path}")
+
 df_majority = df[df['LUNG_CANCER'] == 1]
 df_minority = df[df['LUNG_CANCER'] == 0]
 
@@ -191,15 +197,7 @@ def plot_metrics(metric_dict, metric_name, title):
 
 
 # Define the path to save the scaler
-scaler_save_path = base_path / 'Models' / 'SavedModels' / 'age_scaler.pkl'
 
-# Check if the scaler file already exists
-
-scaler = StandardScaler()
-df['AGE'] = scaler.fit_transform(df[['AGE']])
-scaler_save_path.parent.mkdir(parents=True, exist_ok=True)
-joblib.dump(scaler, scaler_save_path)
-print(f"Scaler saved to {scaler_save_path}")
 
 model_save_path = base_path / 'Models' / 'SavedModels' / 'lung_cancer_model.pth'
 
