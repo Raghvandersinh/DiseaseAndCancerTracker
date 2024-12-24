@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from asgiref.sync import sync_to_async
 import joblib
+import pandas as pd
 
 # Add the directory containing the Models module to the system path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
@@ -20,7 +21,6 @@ async def LungCancerTracker(request):
     if request.method == 'POST':
         form = LungCancerForm(request.POST)
         if form.is_valid():
-            # Extract input data from form
             input_data = [
                 int(form.cleaned_data['gender']),
                 int(form.cleaned_data['age']),  # Ensure age is an int
@@ -47,18 +47,17 @@ async def LungCancerTracker(request):
             scaler_path = base_path / 'Models' / 'SavedModels' / 'age_scaler.pkl'
             scaler = joblib.load(scaler_path)
             
-            # Debugging: Print the scaler and age before transformation
-            print(f"Scaler: {scaler}")
-            print(f"Age before transformation: {input_data[1]}")
-            
-            # Ensure the scaler is fitted
-            if not hasattr(scaler, 'mean_'):
-                print("Scaler is not fitted.")
-            else:
-                print(f"Scaler mean: {scaler.mean_}, var: {scaler.var_}")
-            
-            # Replace age with the scaler mean
-            input_data[1] = scaler.mean_.item()
+            # Convert input_data[1] to a pandas DataFrame with the correct column name
+            age_df = pd.DataFrame([[input_data[1]]], columns=['AGE'])
+
+            # Transform the age value using the scaler
+            transformed_age = scaler.transform(age_df)
+
+            # Print the transformed age
+            print(f"Transformed age: {transformed_age}")
+
+            # Update input_data[1] with the transformed value
+            input_data[1] = transformed_age[0][0]
             
             # Debugging: Print the age after replacement
             print(f"Age after replacement: {input_data[1]}")
