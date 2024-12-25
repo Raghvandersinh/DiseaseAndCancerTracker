@@ -92,15 +92,20 @@ class LungCancerClassifier(nn.Module):
     def __init__(self):
         super(LungCancerClassifier, self).__init__()
         # Define your model layers here
-        self.fc1 = nn.Linear(15, 128)
-        self.fc2 = nn.Linear(128, 64)
-        self.fc3 = nn.Linear(64, 1)
+        self.fc1 = nn.Linear(15, 256)
+        self.fc2 = nn.Linear(256, 128)
+        self.fc3 = nn.Linear(128, 64)
+        self.fc4 = nn.Linear(64, 1)
+        self.dropout = nn.Dropout(0.5)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
+        x = self.dropout(x)
         x = torch.relu(self.fc2(x))
-        x = self.sigmoid(self.fc3(x))
+        x = self.dropout(x)
+        x = torch.relu(self.fc3(x))
+        x = self.sigmoid(self.fc4(x))
         return x
 
     def predict(self, input_data, return_confidence=False):
@@ -140,7 +145,7 @@ def compute_metrics(true_labels, predictions, probablities = None):
 
 # prompt: Create a loss graph
 
-epoch = 500
+epoch = 100
 train_metrics = {"loss": [], "accuracy": [], "precision": [], "recall": [], "f1": [], "roc_auc": []}
 test_metrics =  {"loss": [], "accuracy": [], "precision": [], "recall": [], "f1": [], "roc_auc": []}
 
@@ -157,11 +162,11 @@ for epoch in range(epoch):
   train_metrics_dict = compute_metrics(y_train, train_pred, train_probs)
   for key, value in train_metrics_dict.items():
     train_metrics[key].append(value)
-  # if (epoch+1) % 100 == 0:
-  #     print(f"Epoch {epoch + 1}, Train Loss: {loss.item():.4f}, "
-  #             f"Accuracy: {train_metrics_dict['accuracy']:.4f}, Precision: {train_metrics_dict['precision']:.4f}, "
-  #             f"Recall: {train_metrics_dict['recall']:.4f}, F1: {train_metrics_dict['f1']:.4f}, "
-  #             f"ROC-AUC: {train_metrics_dict['roc_auc']:.4f}")
+  if (epoch+1) % 100 == 0:
+      print(f"Epoch {epoch + 1}, Train Loss: {loss.item():.4f}, "
+              f"Accuracy: {train_metrics_dict['accuracy']:.4f}, Precision: {train_metrics_dict['precision']:.4f}, "
+              f"Recall: {train_metrics_dict['recall']:.4f}, F1: {train_metrics_dict['f1']:.4f}, "
+              f"ROC-AUC: {train_metrics_dict['roc_auc']:.4f}")
 
   model.eval()
   with torch.inference_mode():
@@ -174,11 +179,11 @@ for epoch in range(epoch):
     test_metrics_dict = compute_metrics(y_test, test_pred, test_prob)
     for key, value in test_metrics_dict.items():
       test_metrics[key].append(value)
-    # if (epoch+1) % 100 == 0:
-    #   print(print(f"Epoch {epoch + 1}, Test Loss: {test_loss.item():.4f}, "
-    #               f"Accuracy: {test_metrics_dict['accuracy']:.4f}, Precision: {test_metrics_dict['precision']:.4f}, "
-    #               f"Recall: {test_metrics_dict['recall']:.4f}, F1: {test_metrics_dict['f1']:.4f}, "
-    #               f"ROC-AUC: {test_metrics_dict['roc_auc']:.4f}"))
+    if (epoch+1) % 100 == 0:
+      print(print(f"Epoch {epoch + 1}, Test Loss: {test_loss.item():.4f}, "
+                  f"Accuracy: {test_metrics_dict['accuracy']:.4f}, Precision: {test_metrics_dict['precision']:.4f}, "
+                  f"Recall: {test_metrics_dict['recall']:.4f}, F1: {test_metrics_dict['f1']:.4f}, "
+                  f"ROC-AUC: {test_metrics_dict['roc_auc']:.4f}"))
 
 
 
