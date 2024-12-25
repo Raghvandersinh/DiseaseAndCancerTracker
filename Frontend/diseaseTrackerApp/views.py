@@ -23,7 +23,7 @@ async def LungCancerTracker(request):
         if form.is_valid():
             input_data = [
                 int(form.cleaned_data['gender']),
-                int(form.cleaned_data['age']),  # Ensure age is an int
+                int(form.cleaned_data['age']),
                 int(form.cleaned_data['smoking']),
                 int(form.cleaned_data['yellow_fingers']),
                 int(form.cleaned_data['anxiety']),
@@ -53,19 +53,10 @@ async def LungCancerTracker(request):
             # Transform the age value using the scaler
             transformed_age = scaler.transform(age_df)
 
-            # Print the transformed age
-            print(f"Transformed age: {transformed_age}")
-
             # Update input_data[1] with the transformed value
             input_data[1] = transformed_age[0][0]
             
-            # Debugging: Print the age after replacement
-            print(f"Age after replacement: {input_data[1]}")
-            
-            # Debugging: Print input data
-            print(f"Input data: {input_data}")
-            
-            # Load model and make prediction asynchronously
+            # Make the prediction
             result = await sync_to_async(predict_cancer)(input_data)
     else:
         form = LungCancerForm()
@@ -73,17 +64,14 @@ async def LungCancerTracker(request):
     return render(request, 'LungCancerTrackerModel.html', {'form': form, 'result': result})
 
 def predict_cancer(input_data):
-    model = LungCancerClassifier()  # Remove input_dim argument
+    model = LungCancerClassifier()
     base_path = Path(__file__).resolve().parent.parent.parent
     model_path = base_path / 'Models' / 'SavedModels' / 'lung_cancer_model.pth'
     model.load_state_dict(torch.load(model_path))
-    prediction = model.predict(input_data)
-    
-    # Debugging: Print model output
-    print(f"Model output: {prediction}")
+    prediction, confidence = model.predict(input_data, return_confidence=True)
     
     # Set result message based on prediction
     if prediction == 1:
-        return "Yes, you have signs of having cancer. Consult with your doctor."
+        return f"Yes, you have signs of having cancer. Consult with your doctor. Confidence: {confidence:.2f}%"
     else:
-        return "No, you don't have cancer."
+        return f"No, you don't have cancer. Confidence: {confidence:.2f}%"

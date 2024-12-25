@@ -91,25 +91,29 @@ y_test = torch.tensor(y_test, dtype=torch.float32)
 class LungCancerClassifier(nn.Module):
     def __init__(self):
         super(LungCancerClassifier, self).__init__()
-        self.layers = nn.Sequential(
-            nn.Linear(15, 64),  # Assuming 15 input features
-            nn.ReLU(),
-            nn.Linear(64, 32),
-            nn.ReLU(),
-            nn.Linear(32, 1),
-            nn.Sigmoid()
-        )
+        # Define your model layers here
+        self.fc1 = nn.Linear(15, 128)
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, 1)
+        self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
-        return self.layers(x)
+        x = torch.relu(self.fc1(x))
+        x = torch.relu(self.fc2(x))
+        x = self.sigmoid(self.fc3(x))
+        return x
 
-    def predict(self, input_data):
+    def predict(self, input_data, return_confidence=False):
         self.eval()
         with torch.no_grad():
-            input_tensor = torch.tensor(input_data, dtype=torch.float32).unsqueeze(0)  # Add batch dimension
+            input_tensor = torch.tensor(input_data, dtype=torch.float32).unsqueeze(0)
             output = self(input_tensor)
-            prediction = (output >= 0.5).float()
-            return prediction.item()
+            prediction = torch.round(output).item()
+            confidence = torch.sigmoid(output).item() * 100  # Convert to percentage
+
+        if return_confidence:
+            return prediction, confidence
+        return prediction
 
 model = LungCancerClassifier()
 criterion = nn.BCELoss()

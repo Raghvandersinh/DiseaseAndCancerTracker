@@ -11,7 +11,8 @@
 </div>
 {% if result %}
 <div class="result-container">
-    <h2>Prediction: {{ result }}</h2>
+    <h2 class="result-title">Prediction:</h2>
+    <p class="result-message {% if 'No' in result %}no-cancer{% else %}yes-cancer{% endif %}">{{ result }}</p>
 </div>
 {% endif %}
 {% endblock %}
@@ -51,6 +52,24 @@
     .result-container {
         text-align: center;
         margin-top: 20px;
+        background-color: #e9f7ef;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    .result-title {
+        color: #4CAF50;
+        font-size: 24px;
+        font-weight: bold;
+    }
+    .result-message {
+        font-size: 18px;
+    }
+    .result-message.no-cancer {
+        color: green;
+    }
+    .result-message.yes-cancer {
+        color: red;
     }
 </style>
 {% endblock %}
