@@ -251,8 +251,8 @@ sklearn_model = SklearnWrapper(model)
 
 # Perform cross-validation
 scores = cross_val_score(sklearn_model, X, y, cv=5, scoring='accuracy')
-print(f"Cross-validation accuracy scores: {scores}")
-print(f"Mean cross-validation accuracy: {scores.mean()}")
+# print(f"Cross-validation accuracy scores: {scores}")
+# print(f"Mean cross-validation accuracy: {scores.mean()}")
 
 # Save the model
 torch.save(model.state_dict(), model_save_path)
@@ -275,7 +275,7 @@ test_recall = recall_score(y_test, y_pred)
 test_f1 = f1_score(y_test, y_pred)
 test_roc_auc = roc_auc_score(y_test, y_pred)
 
-print(f"Test set precision: {test_precision}")
-print(f"Test set recall: {test_recall}")
-print(f"Test set F1-score: {test_f1}")
-print(f"Test set ROC-AUC: {test_roc_auc}")
+# print(f"Test set precision: {test_precision}")
+# print(f"Test set recall: {test_recall}")
+# print(f"Test set F1-score: {test_f1}")
+# print(f"Test set ROC-AUC: {test_roc_auc}")
