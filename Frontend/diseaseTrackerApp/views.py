@@ -1,16 +1,14 @@
 from django.shortcuts import render
 from .forms import LungCancerForm
-import torch
-import os
-import sys
 from pathlib import Path
-from asgiref.sync import sync_to_async
+import torch
 import joblib
 import pandas as pd
+import os
+import sys
 
-# Add the directory containing the Models module to the system path
+# Add the Models directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-
 from Models.lungcancermodel import LungCancerClassifier
 
 def home(request):
@@ -57,21 +55,16 @@ async def LungCancerTracker(request):
             input_data[1] = transformed_age[0][0]
             
             # Make the prediction
-            result = await sync_to_async(predict_cancer)(input_data)
+            model = LungCancerClassifier()
+            model_path = base_path / 'Models' / 'SavedModels' / 'lung_cancer_model.pth'
+            model.load_state_dict(torch.load(model_path))
+            prediction, confidence = model.predict(input_data, return_confidence=True)
+
+            if prediction == 1:
+                result = f"Yes, you have signs of having cancer. Consult with your doctor. Confidence: {confidence:.2f}%"
+            else:
+                result = f"No, you don't have cancer. Confidence: {confidence:.2f}%"
     else:
         form = LungCancerForm()
-    
-    return render(request, 'LungCancerTrackerModel.html', {'form': form, 'result': result})
 
-def predict_cancer(input_data):
-    model = LungCancerClassifier()
-    base_path = Path(__file__).resolve().parent.parent.parent
-    model_path = base_path / 'Models' / 'SavedModels' / 'lung_cancer_model.pth'
-    model.load_state_dict(torch.load(model_path))
-    prediction, confidence = model.predict(input_data, return_confidence=True)
-    
-    # Set result message based on prediction
-    if prediction == 1:
-        return f"Yes, you have signs of having cancer. Consult with your doctor. Confidence: {confidence:.2f}%"
-    else:
-        return f"No, you don't have cancer. Confidence: {confidence:.2f}%"
+    return render(request, 'LungCancerTrackerModel.html', {'form': form, 'result': result})
