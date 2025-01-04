@@ -18,7 +18,9 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import joblib
-from Models.HelperFunction.helperFunctions import train_and_evaluate
+
+# Adjust the import statement
+from .HelperFunction.helperFunctions import train_and_evaluate
 
 torch.manual_seed(42)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
