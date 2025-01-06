@@ -13,12 +13,14 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 import numpy as np
 from sklearn.utils import resample
 from pathlib import Path
-from sklearn.model_selection import train_test_split, cross_val_score
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+from sklearn.model_selection import train_test_split
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import joblib
+
+# Adjust the import statement
+from .HelperFunction.helperFunctions import train_and_evaluate
 
 torch.manual_seed(42)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -71,10 +73,10 @@ for column in binary_columns:
 features = df_balanced.drop('LUNG_CANCER', axis=1).to_numpy()
 target = df_balanced['LUNG_CANCER'].to_numpy()
 X_train, X_test, y_train, y_test = train_test_split(features, target, test_size=0.3, random_state=42)
-X_train = torch.tensor(X_train, dtype=torch.float32)
-X_test = torch.tensor(X_test, dtype=torch.float32)
-y_train = torch.tensor(y_train, dtype=torch.float32)
-y_test = torch.tensor(y_test, dtype=torch.float32)
+
+# Create DataLoader for training and testing
+train_loader = torch.utils.data.DataLoader(list(zip(X_train, y_train)), batch_size=32, shuffle=True)
+test_loader = torch.utils.data.DataLoader(list(zip(X_test, y_test)), batch_size=32, shuffle=False)
 
 class LungCancerClassifier(nn.Module):
     def __init__(self):
@@ -109,20 +111,10 @@ def train_model():
     criterion = nn.BCELoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-    epoch = 150
-    for epoch in range(epoch):
-        model.train()
-        output = model(X_train)
-        loss = criterion(output, y_train.unsqueeze(1))
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        if (epoch + 1) % 10 == 0:
-            print(f"Epoch {epoch + 1}, Loss: {loss.item():.4f}")
+    trained_model, metrics = train_and_evaluate(model, train_loader, test_loader, criterion, optimizer, num_epochs=150)
 
     model_save_path = base_path / 'Models' / 'SavedModels' / 'lung_cancer_model.pth'
-    torch.save(model.state_dict(), model_save_path)
+    torch.save(trained_model.state_dict(), model_save_path)
     print(f"Model saved to {model_save_path}")
 
 if __name__ == "__main__":
