@@ -18,10 +18,10 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import joblib
-
+import sys
 # Adjust the import statement
-from .HelperFunction.helperFunctions import train_and_evaluate
-
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from Models.HelperFunction.helperFunctions import train_and_evaluate
 torch.manual_seed(42)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -111,7 +111,7 @@ def train_model():
     criterion = nn.BCELoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-    trained_model, metrics = train_and_evaluate(model, train_loader, test_loader, criterion, optimizer, num_epochs=150)
+    trained_model, metrics = train_and_evaluate(model, train_loader, test_loader, criterion, optimizer,device, num_epochs=150)
 
     model_save_path = base_path / 'Models' / 'SavedModels' / 'lung_cancer_model.pth'
     torch.save(trained_model.state_dict(), model_save_path)
