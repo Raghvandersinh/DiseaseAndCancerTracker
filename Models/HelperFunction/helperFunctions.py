@@ -1,3 +1,4 @@
+from sklearn.model_selection import KFold
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -6,8 +7,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
 import numpy as np
+import torch.utils.data as data
 
-def train_and_evaluate(model, train_loader, test_loader, criterion, optimizer,device, num_epochs=150):
+
+def train_and_evaluate(model, train_loader, test_loader, criterion, optimizer,device, num_epochs=150, epochs_rate=10):
     train_losses = []  # List to store the training loss for each epoch
     test_losses = []   # List to store the test loss for each epoch
     train_accuracies = []  # List to store the training accuracy for each epoch
@@ -63,7 +66,7 @@ def train_and_evaluate(model, train_loader, test_loader, criterion, optimizer,de
         test_accuracies.append(test_accuracy)
 
         # Print training and test loss every 10 epochs
-        if (epoch + 1) % 10 == 0:
+        if (epoch + 1) % epochs_rate == 0:
             print(f"Epoch {epoch + 1}, Train Loss: {avg_train_loss:.4f}, Train Accuracy: {train_accuracy:.4f}, Test Loss: {avg_test_loss:.4f}, Test Accuracy: {test_accuracy:.4f}")
 
     # Plot the training and test loss over epochs
@@ -196,5 +199,55 @@ def visualize_classification(train_loader, test_loader=None, model=None):
         plt.show()
 
 
-            
+def cross_validate(model, train_loader, criterion, optimizer, device, num_epochs=150, k_folds=5, use_saved_model=False, saved_model_path=None):
+   
+    fold_results = {
+        'accuracies': [],
+        'precisions': [],
+        'recalls': [],
+        'f1_scores': [],
+        'roc_aucs': []
+    }
+    
+    kfold = KFold(n_splits=k_folds, shuffle=True)
+    
+    for fold, (train_idx, val_idx) in enumerate(kfold.split(train_loader.dataset)):
+        print(f"\nFold {fold + 1}/{k_folds}")
+        
+        # Create train and validation subsets
+        train_subset = data.Subset(train_loader.dataset, train_idx)
+        val_subset = data.Subset(train_loader.dataset, val_idx)
+        
+        # Create DataLoader for this fold
+        train_fold_loader = torch.utils.data.DataLoader(train_subset, batch_size=train_loader.batch_size, shuffle=True)
+        val_fold_loader = torch.utils.data.DataLoader(val_subset, batch_size=train_loader.batch_size, shuffle=False)
+        
+        # Optionally, load saved model before each fold (if specified)
+        if use_saved_model:
+            model.load_state_dict(torch.load(saved_model_path))
+        
+        # Train and evaluate the model on this fold
+        model, metrics = train_and_evaluate(model, train_fold_loader, val_fold_loader, criterion, optimizer, device, num_epochs, use_saved_model=use_saved_model)
+        
+        # Store metrics for this fold
+        fold_results['accuracies'].append(metrics['accuracy'])
+        fold_results['precisions'].append(metrics['precision'])
+        fold_results['recalls'].append(metrics['recall'])
+        fold_results['f1_scores'].append(metrics['f1'])
+        fold_results['roc_aucs'].append(metrics['roc_auc'])
+
+    # Calculate average metrics across all folds
+    avg_results = {
+        'accuracy': np.mean(fold_results['accuracies']),
+        'precision': np.mean(fold_results['precisions']),
+        'recall': np.mean(fold_results['recalls']),
+        'f1': np.mean(fold_results['f1_scores']),
+        'roc_auc': np.mean(fold_results['roc_aucs'])
+    }
+
+    print(f"\nAverage Results over {k_folds} folds:")
+    for metric, value in avg_results.items():
+        print(f"{metric.capitalize()}: {value:.4f}")
+    
+    return avg_results
 
