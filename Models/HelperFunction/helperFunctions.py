@@ -2,7 +2,7 @@ from sklearn.model_selection import KFold
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+from sklearn.metrics import accuracy_score, mean_squared_error, precision_score, recall_score, f1_score, roc_auc_score
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
@@ -199,55 +199,100 @@ def visualize_classification(train_loader, test_loader=None, model=None):
         plt.show()
 
 
-def cross_validate(model, train_loader, criterion, optimizer, device, num_epochs=150, k_folds=5, use_saved_model=False, saved_model_path=None):
-   
-    fold_results = {
-        'accuracies': [],
-        'precisions': [],
-        'recalls': [],
-        'f1_scores': [],
-        'roc_aucs': []
-    }
+def cross_validate(model, X, y, cv=5, scoring='accuracy', regression=False, device=None, batch_size=32, epochs=1000):
     
-    kfold = KFold(n_splits=k_folds, shuffle=True)
+    kf = KFold(n_splits=cv, shuffle=True, random_state=42)
+    fold_accuracies = []
+    fold_losses = []
     
-    for fold, (train_idx, val_idx) in enumerate(kfold.split(train_loader.dataset)):
-        print(f"\nFold {fold + 1}/{k_folds}")
+    # Loop through the splits
+    for fold, (train_idx, val_idx) in enumerate(kf.split(X)):
+        print(f"Training fold {fold + 1}/{cv}")
         
-        # Create train and validation subsets
-        train_subset = data.Subset(train_loader.dataset, train_idx)
-        val_subset = data.Subset(train_loader.dataset, val_idx)
-        
-        # Create DataLoader for this fold
-        train_fold_loader = torch.utils.data.DataLoader(train_subset, batch_size=train_loader.batch_size, shuffle=True)
-        val_fold_loader = torch.utils.data.DataLoader(val_subset, batch_size=train_loader.batch_size, shuffle=False)
-        
-        # Optionally, load saved model before each fold (if specified)
-        if use_saved_model:
-            model.load_state_dict(torch.load(saved_model_path))
-        
-        # Train and evaluate the model on this fold
-        model, metrics = train_and_evaluate(model, train_fold_loader, val_fold_loader, criterion, optimizer, device, num_epochs, use_saved_model=use_saved_model)
-        
-        # Store metrics for this fold
-        fold_results['accuracies'].append(metrics['accuracy'])
-        fold_results['precisions'].append(metrics['precision'])
-        fold_results['recalls'].append(metrics['recall'])
-        fold_results['f1_scores'].append(metrics['f1'])
-        fold_results['roc_aucs'].append(metrics['roc_auc'])
+        X_train, X_val = torch.tensor(X[train_idx], dtype=torch.float32).to(device), torch.tensor(X[val_idx], dtype=torch.float32).to(device)
+        y_train, y_val = torch.tensor(y[train_idx], dtype=torch.float32).to(device), torch.tensor(y[val_idx], dtype=torch.float32).to(device)
 
-    # Calculate average metrics across all folds
-    avg_results = {
-        'accuracy': np.mean(fold_results['accuracies']),
-        'precision': np.mean(fold_results['precisions']),
-        'recall': np.mean(fold_results['recalls']),
-        'f1': np.mean(fold_results['f1_scores']),
-        'roc_auc': np.mean(fold_results['roc_aucs'])
-    }
+        # Reset model parameters to avoid data leakage between folds
+        model.apply(lambda m: m.reset_parameters() if hasattr(m, 'reset_parameters') else None)
 
-    print(f"\nAverage Results over {k_folds} folds:")
-    for metric, value in avg_results.items():
-        print(f"{metric.capitalize()}: {value:.4f}")
+        # Create DataLoader for batch processing
+        train_data = torch.utils.data.TensorDataset(X_train, y_train)
+        val_data = torch.utils.data.TensorDataset(X_val, y_val)
+        train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True)
+        val_loader = torch.utils.data.DataLoader(val_data, batch_size=batch_size, shuffle=False)
+
+        # Define optimizer and loss function
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
+        loss_fn = torch.nn.BCELoss()  # Binary Cross-Entropy loss
+
+        # Training loop
+        model.train()
+        epoch_accuracies = []
+        epoch_losses = []
+
+        for epoch in range(epochs):  # Train for a fixed number of epochs (you can adjust this)
+            running_loss = 0.0
+            correct_preds = 0
+            total_preds = 0
+            
+            for batch_X, batch_y in train_loader:
+                optimizer.zero_grad()
+                predictions = model(batch_X).squeeze()
+                loss = loss_fn(predictions, batch_y)
+                loss.backward()
+                optimizer.step()
+
+                running_loss += loss.item()
+                
+                # Calculate accuracy
+                preds = (predictions > 0.5).float()
+                correct_preds += (preds == batch_y).sum().item()
+                total_preds += len(batch_y)
+            
+            epoch_loss = running_loss / len(train_loader)
+            epoch_accuracy = correct_preds / total_preds
+            epoch_losses.append(epoch_loss)
+            epoch_accuracies.append(epoch_accuracy)
+
+        # After training, store fold results
+        fold_accuracies.append(np.mean(epoch_accuracies))
+        fold_losses.append(np.mean(epoch_losses))
+
+        # Evaluate the model
+        model.eval()
+        with torch.no_grad():
+            val_preds = []
+            val_labels = []
+            for batch_X, batch_y in val_loader:
+                val_preds_batch = model(batch_X).squeeze().cpu().numpy()
+                val_labels_batch = batch_y.cpu().numpy()
+                val_preds.extend((val_preds_batch > 0.5).astype(int))  # Convert to binary prediction
+                val_labels.extend(val_labels_batch)
+            
+            score = accuracy_score(val_labels, val_preds) if not regression else mean_squared_error(val_labels, val_preds)
+            print(f"Fold {fold + 1} Accuracy: {score:.4f}")
+
+    mean_score = np.mean(fold_accuracies)
     
-    return avg_results
+    # Plotting the results
+    plt.figure(figsize=(12, 6))
+    plt.subplot(1, 2, 1)
+    plt.plot(fold_accuracies, marker='o', label='Accuracy per fold')
+    plt.xlabel('Fold')
+    plt.ylabel('Accuracy')
+    plt.title('Accuracy per fold in Cross-validation')
+    plt.grid(True)
+    plt.xticks(np.arange(cv))
 
+    plt.subplot(1, 2, 2)
+    plt.plot(fold_losses, marker='o', label='Loss per fold')
+    plt.xlabel('Fold')
+    plt.ylabel('Loss')
+    plt.title('Loss per fold in Cross-validation')
+    plt.grid(True)
+    plt.xticks(np.arange(cv))
+
+    plt.tight_layout()
+    plt.show()
+
+    return mean_score, fold_accuracies
