@@ -107,7 +107,9 @@ def train():
 
 
 if __name__ == "__main__":
-    print(hp.cross_validate(model, features, target, cv=5, scoring='accuracy'), epochs=500)
+    mean_score, fold_accuracies, fold_losses = hp.cross_validate(model, features, target, cv=5, scoring='accuracy', epochs=750)
+    print("Mean Score:", mean_score)
+
     # train()
     print("Training Completed")
 
