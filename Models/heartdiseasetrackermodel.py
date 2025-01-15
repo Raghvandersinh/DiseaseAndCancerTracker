@@ -24,7 +24,7 @@ else:
 
 dataset = pd.read_csv(csvFilePath)
 df = pd.DataFrame(dataset)
-print(df.head())
+#print(df.head())
 
 for col in df.columns:
     print(f"{col}: {df[col].unique()}")
@@ -39,15 +39,15 @@ device
 scaler = StandardScaler()
 continous_col = ['age', 'trestbps', 'chol', 'thalach', 'oldpeak']
 df[continous_col] = scaler.fit_transform(df[continous_col])
-print(df.head())
+#print(df.head())
 
 label_encoder = LabelEncoder()
 oridinal_col = ['restecg', 'slope', 'ca',]
 df[oridinal_col] = df[oridinal_col].apply(label_encoder.fit_transform)
-print(df.head())
+#print(df.head())
 
 pd.get_dummies(df, columns=['cp', 'thal'], drop_first=True)
-print(df.head())
+#print(df.head())
 
 label_count = df['target'].value_counts()
 label_count
