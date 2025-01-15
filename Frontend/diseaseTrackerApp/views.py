@@ -15,49 +15,73 @@ from Models.heartdiseasetrackermodel import HeartDiseaseClassification
 def home(request):
     return render(request, 'home.html')
 
-async def HeartDiseaseTracker(request):
+def HeartDiseaseTracker(request):
     result = None
-    if request.method == 'POST':
-        form =  HeartDiseaseForm(request.POST)
-        if form.is_valid():
-            input_data = [
-                int(form.cleaned_data['age']),
-                int(form.cleaned_data['sex']),
-                int(form.cleaned_data['cp']),
-                int(form.cleaned_data['trestbps']),
-                int(form.cleaned_data['chol']),
-                int(form.cleaned_data['fbs']),
-                int(form.cleaned_data['restecg']),
-                int(form.cleaned_data['thalach']),
-                int(form.cleaned_data['exang']),
-                float(form.cleaned_data['oldpeak']),
-                int(form.cleaned_data['slope']),
-                int(form.cleaned_data['ca']),
-                int(form.cleaned_data['thal'])
-            ]
-                        
-            base_path = Path(__file__).resolve().parent.parent.parent
-            scaler_path = base_path / 'Models' / 'SavedModels' / 'HeartDiseaseScaler.pkl'
-            scaler_df = pd.DataFrame([input_data], columns=['age', 'trestbps', 'chol', 'thalach', 'oldpeak'])
-            scaler = joblib.load(scaler_path)
+    form = HeartDiseaseForm()  # Initialize the form here so it's always available
 
-            transformed_input = scaler.transform(scaler_df)
-            input_data = transformed_input[0].tolist()
-            
-            model = HeartDiseaseClassification()
-            model_path = base_path / 'Models' / 'SavedModels' / 'HeartDiseaseModel.pth'
-            model.load_state_dict(torch.load(model_path))
-            prediction, confidence = model.predict(input_data, return_confidence=True)
-            
-            prediction, confidence = model.predict(input_data, return_confidence=True)
-            if prediction == 1:
-                result = f"Yes, you have signs of having heart disease. Consult with your doctor. Confidence: {confidence:.2f}%"
-            else:
-                result = f"No, you don't have heart disease. Confidence: {confidence:.2f}%"
+    if request.method == 'POST':
+        form = HeartDiseaseForm(request.POST)
+
+        if form.is_valid():
+            try:
+                # Extract and process the form data
+                input_data = [
+                    float(form.cleaned_data['age']),
+                    int(form.cleaned_data['sex']),
+                    int(form.cleaned_data['cp']),
+                    float(form.cleaned_data['trestbps']),
+                    float(form.cleaned_data['chol']),
+                    int(form.cleaned_data['fbs']),
+                    int(form.cleaned_data['restecg']),
+                    float(form.cleaned_data['thalach']),
+                    int(form.cleaned_data['exang']),
+                    float(form.cleaned_data['oldpeak']),
+                    int(form.cleaned_data['slope']),
+                    int(form.cleaned_data['ca']),
+                    int(form.cleaned_data['thal'])
+                ]
+
+                # Create a pandas DataFrame with the form data
+                columns = ['age', 'sex', 'cp', 'trestbps', 'chol', 'fbs', 'restecg', 'thalach', 'exang', 'oldpeak', 'slope', 'ca', 'thal']
+                df = pd.DataFrame([input_data], columns=columns)
+
+                # Select only the columns that need to be scaled
+                columns_to_scale = ['age', 'trestbps', 'chol', 'thalach', 'oldpeak']
+                scaler_path = Path.cwd().parent / 'Models' / 'SavedModels' / 'HeartDiseaseScaler.pkl'
+                scaler = joblib.load(scaler_path)
+
+                # Apply the scaler to the selected columns
+                df[columns_to_scale] = scaler.transform(df[columns_to_scale])
+
+                # Convert the DataFrame back to a list
+                input_data = df.iloc[0].tolist()
+
+
+                # Load the model and make the prediction
+                model = HeartDiseaseClassification()
+                model_path = Path.cwd().parent / 'Models' / 'SavedModels' / 'HeartDiseaseModel.pth'
+                model.load_state_dict(torch.load(model_path))
+
+                prediction, confidence = model.predict(input_data, return_confidence=True)
+                if prediction == 1:
+                    result = f"Yes, you have signs of having heart disease. Consult with your doctor. Confidence: {confidence:.2f}%"
+                else:
+                    result = f"No, you don't have heart disease. Confidence: {confidence:.2f}%"
+
+            except Exception as e:
+                # If an error occurs during prediction or data transformation
+                print(f"Error during prediction: {e}")
+                result = "An error occurred while making the prediction. Please try again."
+
         else:
-            form = HeartDiseaseForm()
-        return render(request, 'HeartDiseaseTracker.html', {'form': form, 'result': result})
-async def LungCancerTracker(request):
+            # If form is invalid, log errors
+            print(f"Form validation failed: {form.errors}")
+            result = "There was an error with the form submission. Please check the input values."
+
+    return render(request, 'HeartDiseaseTracker.html', {'form': form, 'result': result})
+
+    
+def LungCancerTracker(request):
     result = None
     if request.method == 'POST':
         form = LungCancerForm(request.POST)

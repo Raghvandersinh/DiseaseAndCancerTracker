@@ -57,16 +57,16 @@ target = df['target'].to_numpy()
 
 X_train, X_test, y_train, y_test = train_test_split(features, target, test_size=0.2, random_state=42)
 
-scaler_save_path = Path.cwd()/'SavedModels'/'HeartDiseaseScaler.pkl'
+scaler_save_path = Path.cwd().parent/'Models'/'SavedModels'/'HeartDiseaseScaler.pkl'
 scaler_save_path.parent.mkdir(parents=True, exist_ok=True)
 joblib.dump(scaler, scaler_save_path)
 print(f"Scaler saved at: {scaler_save_path}")
 
 class HeartDiseaseClassification(nn.Module):
-    def __init__(self, input_dim, output_dim):
+    def __init__(self):
         super(HeartDiseaseClassification, self).__init__()
         self.model = nn.Sequential(
-            nn.Linear(input_dim, 128),
+            nn.Linear(13, 128),
             nn.ReLU(),
             nn.Dropout(0.5),
             nn.Linear(128, 64),
@@ -74,7 +74,7 @@ class HeartDiseaseClassification(nn.Module):
             nn.Dropout(0.5),
             nn.Linear(64, 32),
             nn.ReLU(),
-            nn.Linear(32, output_dim),
+            nn.Linear(32, 1),
             nn.Sigmoid()
         )
 
@@ -94,13 +94,13 @@ class HeartDiseaseClassification(nn.Module):
 
 train_dataloader = dl(list(zip(X_train, y_train)), batch_size=32, shuffle=True)
 test_dataloader = dl(list(zip(X_test, y_test)), batch_size=32, shuffle=False)
-model = HeartDiseaseClassification(input_dim=13, output_dim=1)
+model = HeartDiseaseClassification()
 loss = nn.BCELoss()
 optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
 def train():
     trained_models, metrics = hp.train_and_evaluate(model,train_dataloader, test_dataloader,loss, optimizer,device, 1000, 100)
-    model_save_path = Path.cwd()/'SavedModels'/'HeartDiseaseModel.pth'
+    model_save_path = Path.cwd().parent/'Models'/'SavedModels'/'HeartDiseaseModel.pth'
     torch.save(trained_models.state_dict(), model_save_path)
     print(f"Model saved at: {model_save_path}")
 
