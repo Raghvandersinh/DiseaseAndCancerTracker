@@ -55,8 +55,11 @@ def HeartDiseaseTracker(request):
 
                 # Convert the DataFrame back to a list
                 input_data = df.iloc[0].tolist()
+                
+                for i in [1, 2, 5, 6, 8, 10, 11, 12]:
+                    input_data[i] = int(input_data[i])
 
-
+                print(input_data)
                 # Load the model and make the prediction
                 model = HeartDiseaseClassification()
                 model_path = Path.cwd().parent / 'Models' / 'SavedModels' / 'HeartDiseaseModel.pth'
@@ -120,7 +123,6 @@ def LungCancerTracker(request):
 
             # Update input_data[1] with the transformed value
             input_data[1] = transformed_age[0][0]
-            
             # Make the prediction
             model = LungCancerClassifier()
             model_path = base_path / 'Models' / 'SavedModels' / 'lung_cancer_model.pth'

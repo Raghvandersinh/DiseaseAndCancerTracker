@@ -24,7 +24,7 @@ else:
 
 dataset = pd.read_csv(csvFilePath)
 df = pd.DataFrame(dataset)
-#print(df.head())
+df.drop_duplicates(subset=None, keep='first', inplace=True)
 
 for col in df.columns:
     print(f"{col}: {df[col].unique()}")
@@ -47,7 +47,7 @@ df[oridinal_col] = df[oridinal_col].apply(label_encoder.fit_transform)
 #print(df.head())
 
 pd.get_dummies(df, columns=['cp', 'thal'], drop_first=True)
-#print(df.head())
+print(df.head())
 
 label_count = df['target'].value_counts()
 label_count
@@ -109,7 +109,7 @@ def train():
 if __name__ == "__main__":
     #mean_score, fold_accuracies, fold_losses = hp.cross_validate(model, features, target, cv=5, scoring='accuracy', epochs=1000)
     #print("Mean Score:", mean_score)
-
+    print(X_train.shape)
     train()
     print("Training Completed")
 
