@@ -124,7 +124,7 @@ def train_and_evaluate(model, train_loader, test_loader, criterion, optimizer,de
     }
 
 
-def cross_validate(model, X, y, cv=5, scoring='accuracy', regression=False, device=None, batch_size=32, epochs=1000):
+def cross_validate(model, X, y,optimizer, loss_fn,cv=5, scoring='accuracy',  regression=False, device=None, batch_size=32, epochs=1000  ):
     
     kf = KFold(n_splits=cv, shuffle=True, random_state=42)
     fold_accuracies = []
@@ -147,10 +147,6 @@ def cross_validate(model, X, y, cv=5, scoring='accuracy', regression=False, devi
         val_data = torch.utils.data.TensorDataset(X_val, y_val)
         train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True)
         val_loader = torch.utils.data.DataLoader(val_data, batch_size=batch_size, shuffle=False)
-
-        # Define optimizer and loss function
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
-        loss_fn = torch.nn.BCELoss()  # Binary Cross-Entropy loss
 
         # Training loop
         model.train()

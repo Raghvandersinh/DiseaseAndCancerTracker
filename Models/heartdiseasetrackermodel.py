@@ -66,15 +66,13 @@ class HeartDiseaseClassification(nn.Module):
     def __init__(self):
         super(HeartDiseaseClassification, self).__init__()
         self.model = nn.Sequential(
-            nn.Linear(13, 128),
+            nn.Linear(13, 16),  # Reduce input layer size
             nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(128, 64),
+            nn.Dropout(0.3),  # Reduce dropout rate
+            nn.Linear(16, 8),  # Reduce second layer size
             nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(64, 32),
-            nn.ReLU(),
-            nn.Linear(32, 1),
+            nn.Dropout(0.3),
+            nn.Linear(8, 1),
             nn.Sigmoid()
         )
 
@@ -96,7 +94,7 @@ train_dataloader = dl(list(zip(X_train, y_train)), batch_size=32, shuffle=True)
 test_dataloader = dl(list(zip(X_test, y_test)), batch_size=32, shuffle=False)
 model = HeartDiseaseClassification()
 loss = nn.BCELoss()
-optimizer = optim.Adam(model.parameters(), lr=0.0001)
+optimizer = optim.Adam(model.parameters(), lr=0.1)
 
 def train():
     trained_models, metrics = hp.train_and_evaluate(model,train_dataloader, test_dataloader,loss, optimizer,device, 1000, 100)
@@ -107,10 +105,9 @@ def train():
 
 
 if __name__ == "__main__":
-    #mean_score, fold_accuracies, fold_losses = hp.cross_validate(model, features, target, cv=5, scoring='accuracy', epochs=1000)
-    #print("Mean Score:", mean_score)
-    print(X_train.shape)
-    train()
+    mean_score, fold_accuracies, fold_losses = hp.cross_validate(model, features, target,optimizer,loss, cv=5, scoring='accuracy', epochs=400)
+    print("Mean Score:", mean_score)
+    #train()
     print("Training Completed")
 
 
