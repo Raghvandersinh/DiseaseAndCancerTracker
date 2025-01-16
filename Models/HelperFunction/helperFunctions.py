@@ -2,7 +2,7 @@ from sklearn.model_selection import KFold
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from sklearn.metrics import accuracy_score, mean_squared_error, precision_score, recall_score, f1_score, roc_auc_score
+from sklearn.metrics import  roc_curve,accuracy_score, mean_squared_error, precision_score, recall_score, f1_score, roc_auc_score
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
@@ -124,85 +124,12 @@ def train_and_evaluate(model, train_loader, test_loader, criterion, optimizer,de
     }
 
 
-
-
-def visualize_classification(train_loader, test_loader=None, model=None):
-    # Extract training data from the train_loader
-    X_train = []
-    y_train = []
-    model.eval()  # Set model to evaluation mode
-    with torch.no_grad():
-        for inputs, labels in train_loader:
-            X_train.append(inputs.numpy())  # Convert inputs to numpy array
-            y_train.append(labels.numpy())  # Convert labels to numpy array
-    X_train = np.vstack(X_train)  # Stack the batches into a single array
-    y_train = np.hstack(y_train)  # Stack the labels into a single array
-
-    # Visualize training data
-    plt.figure(figsize=(12, 6))
-    plt.scatter(X_train[:, 0], X_train[:, 1], c=y_train, cmap='viridis', edgecolors='k')
-    plt.xlabel('Feature 1')
-    plt.ylabel('Feature 2')
-    plt.title('Before Training Data')
-    plt.colorbar(label='Class')
-    plt.show()
-
-    # If a model is provided, plot the decision boundary
-    if model is not None:
-        h = .02
-        x_min, x_max = X_train[:, 0].min() - 1, X_train[:, 0].max() + 1
-        y_min, y_max = X_train[:, 1].min() - 1, X_train[:, 1].max() + 1
-        xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
-
-        # Predict on the meshgrid
-        Z = model(torch.tensor(np.c_[xx.ravel(), yy.ravel()], dtype=torch.float32))
-        Z = Z.detach().numpy().reshape(xx.shape)
-
-        plt.figure(figsize=(8, 6))
-        plt.contourf(xx, yy, Z, cmap='viridis', alpha=0.8)
-        plt.scatter(X_train[:, 0], X_train[:, 1], c=y_train, cmap='viridis', edgecolors='k')
-        plt.xlabel('Feature 1')
-        plt.ylabel('Feature 2')
-        plt.title('After Training Data')
-        plt.colorbar(label='Class')
-        plt.show()
-
-    # If test_loader is provided, visualize the test data and confusion matrix
-    if test_loader is not None:
-        X_test = []
-        y_test = []
-        with torch.no_grad():
-            for inputs, labels in test_loader:
-                X_test.append(inputs.numpy())
-                y_test.append(labels.numpy())
-        X_test = np.vstack(X_test)
-        y_test = np.hstack(y_test)
-
-        # Make predictions on the test set
-        all_preds = []
-        with torch.no_grad():
-            for inputs in test_loader:
-                inputs, labels = inputs.to(torch.float32), labels.to(torch.float32).unsqueeze(1)
-                outputs = model(inputs)
-                preds = (outputs > 0.5).float()
-                all_preds.extend(preds.cpu().numpy())
-
-        # Generate confusion matrix
-        cm = confusion_matrix(y_test, all_preds)
-        plt.figure(figsize=(6, 5))
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
-                    xticklabels=['Class 0', 'Class 1'],
-                    yticklabels=['Class 0', 'Class 1'])
-        plt.title('Confusion Matrix')
-        plt.xlabel('Predicted')
-        plt.ylabel('Actual')
-        plt.show()
-
-
-def cross_validate(model, X, y, cv=5, scoring='accuracy', regression=False, device=None, batch_size=32, epochs=1000):
+def cross_validate(model, X, y,optimizer, loss_fn,cv=5, scoring='accuracy',  regression=False, device=None, batch_size=32, epochs=1000  ):
     
     kf = KFold(n_splits=cv, shuffle=True, random_state=42)
     fold_accuracies = []
+    fold_precisions = []
+    fold_aucs = []
     fold_losses = []
     
     # Loop through the splits
@@ -221,16 +148,12 @@ def cross_validate(model, X, y, cv=5, scoring='accuracy', regression=False, devi
         train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True)
         val_loader = torch.utils.data.DataLoader(val_data, batch_size=batch_size, shuffle=False)
 
-        # Define optimizer and loss function
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
-        loss_fn = torch.nn.BCELoss()  # Binary Cross-Entropy loss
-
         # Training loop
         model.train()
         epoch_accuracies = []
         epoch_losses = []
 
-        for epoch in range(epochs):  # Train for a fixed number of epochs (you can adjust this)
+        for epoch in range(epochs):
             running_loss = 0.0
             correct_preds = 0
             total_preds = 0
@@ -254,25 +177,40 @@ def cross_validate(model, X, y, cv=5, scoring='accuracy', regression=False, devi
             epoch_losses.append(epoch_loss)
             epoch_accuracies.append(epoch_accuracy)
 
-        # After training, store fold results
-        fold_accuracies.append(np.mean(epoch_accuracies))
+        # Store fold results
         fold_losses.append(np.mean(epoch_losses))
+        fold_accuracies.append(np.mean(epoch_accuracies))
 
+        # Evaluate the model
         # Evaluate the model
         model.eval()
         with torch.no_grad():
             val_preds = []
             val_labels = []
             for batch_X, batch_y in val_loader:
-                val_preds_batch = model(batch_X).squeeze().cpu().numpy()
+                val_preds_batch = model(batch_X).squeeze().cpu().numpy()  # Get probabilities
                 val_labels_batch = batch_y.cpu().numpy()
-                val_preds.extend((val_preds_batch > 0.5).astype(int))  # Convert to binary prediction
+                
+                val_preds.extend(val_preds_batch)  # Store probabilities for AUC
                 val_labels.extend(val_labels_batch)
-            
-            score = accuracy_score(val_labels, val_preds) if not regression else mean_squared_error(val_labels, val_preds)
-            print(f"Fold {fold + 1} Accuracy: {score:.4f}")
 
-    mean_score = np.mean(fold_accuracies)
+            # Calculate metrics
+            accuracy = accuracy_score(val_labels, (np.array(val_preds) > 0.5).astype(int))
+            precision = precision_score(val_labels, (np.array(val_preds) > 0.5).astype(int))
+
+            # Calculate AUC
+            auc = roc_auc_score(val_labels, val_preds)  # Use probabilities for AUC
+            
+            # Confusion matrix for correct and incorrect predictions
+            tn, fp, fn, tp = confusion_matrix(val_labels, (np.array(val_preds) > 0.5).astype(int)).ravel()
+            correct_predictions = tp + tn
+            incorrect_predictions = fp + fn
+            fpr, tpr, _ = roc_curve(val_labels, val_preds)
+
+            print(f"Fold {fold + 1} - Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, AUC: {auc:.4f}")
+            print(f"Correct Predictions: {correct_predictions}, Incorrect Predictions: {incorrect_predictions}")
+
+    mean_accuracy = np.mean(fold_accuracies)
     
     # Plotting the results
     plt.figure(figsize=(12, 6))
@@ -294,5 +232,24 @@ def cross_validate(model, X, y, cv=5, scoring='accuracy', regression=False, devi
 
     plt.tight_layout()
     plt.show()
+    
+    cm = confusion_matrix(val_labels, (np.array(val_preds) > 0.5).astype(int))
+    plt.figure(figsize=(6, 6))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['Pred: 0', 'Pred: 1'], yticklabels=['True: 0', 'True: 1'])
+    plt.xlabel('Predicted')
+    plt.ylabel('True')
+    plt.title(f'Confusion Matrix for Fold {fold + 1}')
+    plt.show()
+    
+    plt.figure(figsize=(6, 6))
+    plt.plot(fpr, tpr, marker='o', label=f"Fold {fold + 1}")
+    plt.plot([0, 1], [0, 1], 'k--')  # Random classifier line
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title(f'ROC Curve for Fold {fold + 1}')
+    plt.grid(True)
+    plt.legend(loc='lower right')
+    plt.show()
 
-    return mean_score, fold_accuracies
+
+    return mean_accuracy, fold_accuracies, fold_losses

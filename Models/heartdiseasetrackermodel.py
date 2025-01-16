@@ -24,7 +24,7 @@ else:
 
 dataset = pd.read_csv(csvFilePath)
 df = pd.DataFrame(dataset)
-print(df.head())
+df.drop_duplicates(subset=None, keep='first', inplace=True)
 
 for col in df.columns:
     print(f"{col}: {df[col].unique()}")
@@ -39,12 +39,12 @@ device
 scaler = StandardScaler()
 continous_col = ['age', 'trestbps', 'chol', 'thalach', 'oldpeak']
 df[continous_col] = scaler.fit_transform(df[continous_col])
-print(df.head())
+#print(df.head())
 
 label_encoder = LabelEncoder()
 oridinal_col = ['restecg', 'slope', 'ca',]
 df[oridinal_col] = df[oridinal_col].apply(label_encoder.fit_transform)
-print(df.head())
+#print(df.head())
 
 pd.get_dummies(df, columns=['cp', 'thal'], drop_first=True)
 print(df.head())
@@ -57,24 +57,22 @@ target = df['target'].to_numpy()
 
 X_train, X_test, y_train, y_test = train_test_split(features, target, test_size=0.2, random_state=42)
 
-scaler_save_path = Path.cwd()/'SavedModels'/'HeartDiseaseScaler.pkl'
+scaler_save_path = Path.cwd().parent/'Models'/'SavedModels'/'HeartDiseaseScaler.pkl'
 scaler_save_path.parent.mkdir(parents=True, exist_ok=True)
 joblib.dump(scaler, scaler_save_path)
 print(f"Scaler saved at: {scaler_save_path}")
 
 class HeartDiseaseClassification(nn.Module):
-    def __init__(self, input_dim, output_dim):
+    def __init__(self):
         super(HeartDiseaseClassification, self).__init__()
         self.model = nn.Sequential(
-            nn.Linear(input_dim, 64),
+            nn.Linear(13, 16),  # Reduce input layer size
             nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(64, 32),
+            nn.Dropout(0.3),  # Reduce dropout rate
+            nn.Linear(16, 8),  # Reduce second layer size
             nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(32, 16),
-            nn.ReLU(),
-            nn.Linear(16, output_dim),
+            nn.Dropout(0.3),
+            nn.Linear(8, 1),
             nn.Sigmoid()
         )
 
@@ -94,21 +92,22 @@ class HeartDiseaseClassification(nn.Module):
 
 train_dataloader = dl(list(zip(X_train, y_train)), batch_size=32, shuffle=True)
 test_dataloader = dl(list(zip(X_test, y_test)), batch_size=32, shuffle=False)
-model = HeartDiseaseClassification(input_dim=13, output_dim=1)
+model = HeartDiseaseClassification()
 loss = nn.BCELoss()
-optimizer = optim.Adam(model.parameters(), lr=0.0001)
+optimizer = optim.Adam(model.parameters(), lr=0.1)
 
 def train():
     trained_models, metrics = hp.train_and_evaluate(model,train_dataloader, test_dataloader,loss, optimizer,device, 1000, 100)
-    model_save_path = Path.cwd()/'SavedModels'/'HeartDiseaseModel.pth'
+    model_save_path = Path.cwd().parent/'Models'/'SavedModels'/'HeartDiseaseModel.pth'
     torch.save(trained_models.state_dict(), model_save_path)
     print(f"Model saved at: {model_save_path}")
 
 
 
 if __name__ == "__main__":
-    print(hp.cross_validate(model, features, target, cv=5, scoring='accuracy'), epochs=500)
-    # train()
+    mean_score, fold_accuracies, fold_losses = hp.cross_validate(model, features, target,optimizer,loss, cv=5, scoring='accuracy', epochs=400)
+    print("Mean Score:", mean_score)
+    #train()
     print("Training Completed")
 
 

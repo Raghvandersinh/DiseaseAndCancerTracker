@@ -1,0 +1,75 @@
+{% extends "base.html" %} 
+
+{% block content %}
+<h1 class="title">Heart Disease Tracker</h1>
+<div class="form-container">
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="submit-button">Submit</button>
+    </form>
+</div>
+{% if result %}
+<div class="result-container">
+    <h2 class="result-title">Prediction:</h2>
+    <p class="result-message {% if 'No' in result %}no-heartdisease{% else %}yes-heartdisease{% endif %}">{{ result }}</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .title {
+        text-align: center;
+        color:rgb(183, 63, 73);
+        font-family: 'Arial', sans-serif;
+    }
+    .form-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        margin-top: 20px;
+    }
+    form {
+        background-color:rgb(244, 227, 229);;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    .submit-button {
+        background-color: rgb(183, 63, 73);;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+    }
+    .submit-button:hover {
+        background-color: rgb(183, 63, 73);;
+    }
+    .result-container {
+        text-align: center;
+        margin-top: 20px;
+        background-color: #e9f7ef;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    .result-title {
+        color: rgb(183, 63, 73);;
+        font-size: 24px;
+        font-weight: bold;
+    }
+    .result-message {
+        font-size: 18px;
+    }
+    .result-message.no-cancer {
+        color: green;
+    }
+    .result-message.yes-cancer {
+        color: red;
+    }
+</style>
+{% endblock %}
