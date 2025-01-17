@@ -69,9 +69,9 @@ def HeartDiseaseTracker(request):
 
                 prediction, confidence = model.predict(input_data, return_confidence=True)
                 if prediction == 1:
-                    result = f"Yes, you have signs of having heart disease. Consult with your doctor. Confidence: {confidence:.2f}%"
+                    result = f"Yes, you have signs of having heart disease. Consult with your doctor. Probability Of Having It: {confidence:.2f}%"
                 else:
-                    result = f"No, you don't have heart disease. Confidence: {confidence:.2f}%"
+                    result = f"No, you don't have heart disease. Probability Of Having It: {confidence:.2f}%"
 
             except Exception as e:
                 # If an error occurs during prediction or data transformation
@@ -132,9 +132,9 @@ def LungCancerTracker(request):
             prediction, confidence = model.predict(input_data, return_confidence=True)
 
             if prediction == 1:
-                result = f"Yes, you have signs of having cancer. Consult with your doctor. Confidence: {confidence:.2f}%"
+                result = f"Yes, you have signs of having cancer. Consult with your doctor. Probability Of Having It: {confidence:.2f}%"
             else:
-                result = f"No, you don't have cancer. Confidence: {confidence:.2f}%"
+                result = f"No, you don't have cancer. Probability Of Having It: {confidence:.2f}%"
     else:
         form = LungCancerForm()
 
