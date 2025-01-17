@@ -15,16 +15,18 @@ def train_and_evaluate(model, train_loader, test_loader, criterion, optimizer,de
     test_losses = []   # List to store the test loss for each epoch
     train_accuracies = []  # List to store the training accuracy for each epoch
     test_accuracies = []   # List to store the test accuracy for each epoch
-
+    model.to(device)
     for epoch in range(num_epochs):
         # Training Phase
-        model.train().to(device)
+        model.train()
         train_loss = 0.0
         correct_train_preds = 0
         total_train_preds = 0
         
         for inputs, labels in train_loader:
+            # Ensure inputs and labels are moved to the correct device
             inputs, labels = inputs.to(torch.float32).to(device), labels.to(torch.float32).unsqueeze(1).to(device)
+
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = criterion(outputs, labels)
@@ -50,7 +52,9 @@ def train_and_evaluate(model, train_loader, test_loader, criterion, optimizer,de
         total_test_preds = 0
         with torch.no_grad():
             for inputs, labels in test_loader:
+                # Ensure inputs and labels are moved to the correct device
                 inputs, labels = inputs.to(torch.float32).to(device), labels.to(torch.float32).unsqueeze(1).to(device)
+
                 outputs = model(inputs)
                 loss = criterion(outputs, labels)
                 test_loss += loss.item()
@@ -96,11 +100,13 @@ def train_and_evaluate(model, train_loader, test_loader, criterion, optimizer,de
     all_labels = []
     with torch.no_grad():
         for inputs, labels in test_loader:
-            inputs, labels = inputs.to(torch.float32), labels.to(torch.float32).unsqueeze(1)
+            # Ensure inputs and labels are moved to the correct device
+            inputs, labels = inputs.to(torch.float32).to(device), labels.to(torch.float32).unsqueeze(1).to(device)
+            
             outputs = model(inputs)
             preds = (outputs > 0.5).float()
-            all_preds.extend(preds.cpu().numpy())
-            all_labels.extend(labels.cpu().numpy())
+            all_preds.extend(preds.cpu().numpy())  # Move predictions back to CPU for metrics calculation
+            all_labels.extend(labels.cpu().numpy())  # Move labels back to CPU
 
     # Metrics Calculation
     accuracy = accuracy_score(all_labels, all_preds)

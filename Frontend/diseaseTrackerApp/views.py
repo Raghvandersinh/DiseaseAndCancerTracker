@@ -47,7 +47,9 @@ def HeartDiseaseTracker(request):
 
                 # Select only the columns that need to be scaled
                 columns_to_scale = ['age', 'trestbps', 'chol', 'thalach', 'oldpeak']
-                scaler_path = Path.cwd().parent / 'Models' / 'SavedModels' / 'HeartDiseaseScaler.pkl'
+                base_path = Path(__file__).resolve().parent.parent.parent
+
+                scaler_path = base_path / 'Models' / 'SavedModels' / 'HeartDiseaseScaler.pkl'
                 scaler = joblib.load(scaler_path)
 
                 # Apply the scaler to the selected columns
@@ -62,8 +64,8 @@ def HeartDiseaseTracker(request):
                 print(input_data)
                 # Load the model and make the prediction
                 model = HeartDiseaseClassification()
-                model_path = Path.cwd().parent / 'Models' / 'SavedModels' / 'HeartDiseaseModel.pth'
-                model.load_state_dict(torch.load(model_path))
+                model_path = base_path / 'Models' / 'SavedModels' / 'HeartDiseaseModel.pth'
+                model.load_state_dict(torch.load(model_path), weights_only=True)
 
                 prediction, confidence = model.predict(input_data, return_confidence=True)
                 if prediction == 1:
@@ -126,7 +128,7 @@ def LungCancerTracker(request):
             # Make the prediction
             model = LungCancerClassifier()
             model_path = base_path / 'Models' / 'SavedModels' / 'lung_cancer_model.pth'
-            model.load_state_dict(torch.load(model_path))
+            model.load_state_dict(torch.load(model_path), weights_only=True)
             prediction, confidence = model.predict(input_data, return_confidence=True)
 
             if prediction == 1:
