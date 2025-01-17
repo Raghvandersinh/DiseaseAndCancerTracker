@@ -65,7 +65,7 @@ def HeartDiseaseTracker(request):
                 # Load the model and make the prediction
                 model = HeartDiseaseClassification()
                 model_path = base_path / 'Models' / 'SavedModels' / 'HeartDiseaseModel.pth'
-                model.load_state_dict(torch.load(model_path), weights_only=True)
+                model.load_state_dict(torch.load(model_path, weights_only=True))
 
                 prediction, confidence = model.predict(input_data, return_confidence=True)
                 if prediction == 1:
@@ -128,7 +128,7 @@ def LungCancerTracker(request):
             # Make the prediction
             model = LungCancerClassifier()
             model_path = base_path / 'Models' / 'SavedModels' / 'lung_cancer_model.pth'
-            model.load_state_dict(torch.load(model_path), weights_only=True)
+            model.load_state_dict(torch.load(model_path, weights_only=True))
             prediction, confidence = model.predict(input_data, return_confidence=True)
 
             if prediction == 1:
