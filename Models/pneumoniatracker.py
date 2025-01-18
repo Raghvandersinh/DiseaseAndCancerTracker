@@ -20,7 +20,7 @@ import kaggle
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from Models.HelperFunction import helperFunctions as hp
-
+import torchvision.models as models 
 
 folder_file_path = Path.cwd()/'dataset'/'chest_xray'
 folder_location = Path.cwd()/'dataset'
@@ -45,17 +45,21 @@ my_transforms = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
-train_dataset = datasets.ImageFolder(root="/dataset/chest_xray/train", transform=my_transforms)
-test_dataset = datasets.ImageFolder(root="/dataset/chest_xray/test", transform=my_transforms)
-val_dataset = datasets.ImageFolder(root="/dataset/chest_xray/val", transform=my_transforms)
+train_path = Path.cwd()/'dataset'/'chest_xray'/"chest_xray"/'train'
+test_path = Path.cwd()/'dataset'/'chest_xray'/"chest_xray"/'test'
+val_path = Path.cwd()/'dataset'/'chest_xray'/"chest_xray"/'val'
+
+train_dataset = datasets.ImageFolder(root=train_path, transform=my_transforms)
+test_dataset = datasets.ImageFolder(root=test_path, transform=my_transforms)
+val_dataset = datasets.ImageFolder(root=val_path, transform=my_transforms)
 
 train_dataloader = DataLoader(train_dataset, batch_size=32, shuffle=True)
 test_dataloader = DataLoader(test_dataset, batch_size=32, shuffle=True)
 val_dataloader = DataLoader(val_dataset, batch_size=32, shuffle=True)
 
-imread("/dataset/chest_xray/train/NORMAL/IM-0115-0001.jpeg")
-plt.imshow(imread("/dataset/chest_xray/train/NORMAL/IM-0115-0001.jpeg"))
-
+plt.figure(figsize=(10, 10))
+plt.imshow(imread(f"{Path.cwd()}/dataset/chest_xray/chest_xray/train/NORMAL/IM-0115-0001.jpeg"))
+plt.show()
 class XrayModel(nn.Module):
     def __init__(self, num_classes=2):  # Assuming binary classification (Normal/Pneumonia)
         super(XrayModel, self).__init__()
@@ -96,23 +100,24 @@ class XrayModel(nn.Module):
         x = self.classifier(x)
         return x
 
-model = XrayModel().to(device)
-loss = nn.BCEWithLogitsLoss()
+model = models.resnet18(pretrained=True).to(device)
+loss = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(params=model.parameters(), lr=0.01)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
+# scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
 
 def train_and_eval():
-    trained_models=  hp.train_and_evaluate(model, train_dataloader, test_dataloader, loss, optimizer, device, 10, 5)
+    trained_model, _ = hp.train_and_evaluate_2d(model, train_dataloader, test_dataloader, loss, optimizer, device, 1, 5)
     model_save_path = Path.cwd()/'Models'/'SavedModels'/'PneumoniaTrackerModel.pth'
-    torch.save(trained_models.state_dict(), model_save_path)
+    torch.save(trained_model.state_dict(), model_save_path)
     print(f"Model saved at: {model_save_path}")
 
     
+    
+
+
+    
 if __name__ == "__main__":
-     mean_score, fold_accuracies, fold_losses = hp.cross_validate(model, train_dataset, test_dataset, optimizer, loss, cv=5, scoring='accuracy', epochs=3)
-     print("Mean Score:", mean_score)
-     print("fold_accuracies:", fold_accuracies)
-     print("fold_losses:", fold_losses)
+    train_and_eval()
 
 # def calculate_metrics(y_true, y_pred):
 #     accuracy = accuracy_score(y_true, y_pred)

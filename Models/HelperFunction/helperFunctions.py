@@ -8,6 +8,7 @@ import seaborn as sns
 from sklearn.metrics import confusion_matrix
 import numpy as np
 import torch.utils.data as data
+import time
 
 
 def train_and_evaluate(model, train_loader, test_loader, criterion, optimizer,device, num_epochs=150, epochs_rate=10):
@@ -259,3 +260,133 @@ def cross_validate(model, X, y,optimizer, loss_fn,cv=5, scoring='accuracy',  reg
 
 
     return mean_accuracy, fold_accuracies, fold_losses
+
+
+def train_and_evaluate_2d(model, train_loader, test_loader, criterion, optimizer, device, num_epochs=150, epochs_rate=10):
+    start_time = time.time()  # Start timing the whole training process
+
+    train_losses = []  # List to store the training loss for each epoch
+    test_losses = []   # List to store the test loss for each epoch
+    train_accuracies = []  # List to store the training accuracy for each epoch
+    test_accuracies = []   # List to store the test accuracy for each epoch
+    model.to(device)
+
+    for epoch in range(num_epochs):
+        # Training Phase
+        model.train()
+        train_loss = 0.0
+        correct_train_preds = 0
+        total_train_preds = 0
+        
+        for inputs, labels in train_loader:
+            # Ensure inputs and labels are moved to the correct device
+            inputs, labels = inputs.to(torch.float32).to(device), labels.to(torch.long).to(device)  # labels to long for CrossEntropyLoss
+
+            optimizer.zero_grad()
+            outputs = model(inputs)
+
+            # If it's multi-class classification, use CrossEntropyLoss
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+            
+            train_loss += loss.item()
+            
+            # Calculate accuracy
+            _, preds = torch.max(outputs, 1)  # For multi-class, take the class with the highest score
+            correct_train_preds += (preds == labels).sum().item()
+            total_train_preds += labels.size(0)
+
+        avg_train_loss = train_loss / len(train_loader)
+        train_losses.append(avg_train_loss)
+        train_accuracy = correct_train_preds / total_train_preds  # Accuracy for training set
+        train_accuracies.append(train_accuracy)
+
+        # Evaluation Phase (Test Loss and Accuracy)
+        model.eval()
+        test_loss = 0.0
+        correct_test_preds = 0
+        total_test_preds = 0
+        with torch.no_grad():
+            for inputs, labels in test_loader:
+                # Ensure inputs and labels are moved to the correct device
+                inputs, labels = inputs.to(torch.float32).to(device), labels.to(torch.long).to(device)
+
+                outputs = model(inputs)
+                loss = criterion(outputs, labels)
+                test_loss += loss.item()
+
+                # Calculate accuracy
+                _, preds = torch.max(outputs, 1)  # For multi-class, take the class with the highest score
+                correct_test_preds += (preds == labels).sum().item()
+                total_test_preds += labels.size(0)
+
+        avg_test_loss = test_loss / len(test_loader)
+        test_losses.append(avg_test_loss)
+        test_accuracy = correct_test_preds / total_test_preds  # Accuracy for test set
+        test_accuracies.append(test_accuracy)
+
+        # Print training and test loss every 'epochs_rate' epochs
+        if (epoch + 1) % epochs_rate == 0:
+            print(f"Epoch {epoch + 1}, Train Loss: {avg_train_loss:.4f}, Train Accuracy: {train_accuracy:.4f}, Test Loss: {avg_test_loss:.4f}, Test Accuracy: {test_accuracy:.4f}")
+
+    # Plot the training and test loss over epochs
+    plt.figure(figsize=(10, 6))
+    plt.plot(range(1, num_epochs + 1), train_losses, label='Train Loss', color='blue')
+    plt.plot(range(1, num_epochs + 1), test_losses, label='Test Loss', color='red', linestyle='--')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.title('Train and Test Loss Over Epochs')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+    # Plot the training and test accuracy over epochs
+    plt.figure(figsize=(10, 6))
+    plt.plot(range(1, num_epochs + 1), train_accuracies, label='Train Accuracy', color='blue')
+    plt.plot(range(1, num_epochs + 1), test_accuracies, label='Test Accuracy', color='red', linestyle='--')
+    plt.xlabel('Epochs')
+    plt.ylabel('Accuracy')
+    plt.title('Train and Test Accuracy Over Epochs')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+    # After training, evaluate the model on the test set
+    all_preds = []
+    all_labels = []
+    with torch.no_grad():
+        for inputs, labels in test_loader:
+            # Ensure inputs and labels are moved to the correct device
+            inputs, labels = inputs.to(torch.float32).to(device), labels.to(torch.long).to(device)
+            
+            outputs = model(inputs)
+            _, preds = torch.max(outputs, 1)  # Get the class with the highest probability
+            all_preds.extend(preds.cpu().numpy())  # Move predictions back to CPU for metrics calculation
+            all_labels.extend(labels.cpu().numpy())  # Move labels back to CPU
+
+    # Metrics Calculation
+    accuracy = accuracy_score(all_labels, all_preds)
+    precision = precision_score(all_labels, all_preds, average='macro')  # Average for multi-class classification
+    recall = recall_score(all_labels, all_preds, average='macro')
+    f1 = f1_score(all_labels, all_preds, average='macro')
+    roc_auc = roc_auc_score(all_labels, all_preds, average='macro', multi_class='ovr')
+
+    print(f"Test Accuracy: {accuracy:.4f}")
+    print(f"Test Precision: {precision:.4f}")
+    print(f"Test Recall: {recall:.4f}")
+    print(f"Test F1-Score: {f1:.4f}")
+    print(f"Test ROC-AUC: {roc_auc:.4f}")
+
+    # Record and print total time taken for training and evaluation
+    end_time = time.time()  # End timing the whole training process
+    total_time = end_time - start_time  # Calculate the total time taken
+    print(f"Total training and evaluation time: {total_time:.2f} seconds")
+    
+    return model, {
+        'accuracy': accuracy,
+        'precision': precision,
+        'recall': recall,
+        'f1': f1,
+        'roc_auc': roc_auc
+    }
