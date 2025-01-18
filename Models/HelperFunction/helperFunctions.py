@@ -9,6 +9,8 @@ from sklearn.metrics import confusion_matrix
 import numpy as np
 import torch.utils.data as data
 import time
+import timeit
+from tqdm import tqdm
 
 
 def train_and_evaluate(model, train_loader, test_loader, criterion, optimizer,device, num_epochs=150, epochs_rate=10):
@@ -261,9 +263,8 @@ def cross_validate(model, X, y,optimizer, loss_fn,cv=5, scoring='accuracy',  reg
 
     return mean_accuracy, fold_accuracies, fold_losses
 
-
 def train_and_evaluate_2d(model, train_loader, test_loader, criterion, optimizer, device, num_epochs=150, epochs_rate=10):
-    start_time = time.time()  # Start timing the whole training process
+    start_time = timeit.default_timer()  # Start timing the whole training process
 
     train_losses = []  # List to store the training loss for each epoch
     test_losses = []   # List to store the test loss for each epoch
@@ -272,15 +273,19 @@ def train_and_evaluate_2d(model, train_loader, test_loader, criterion, optimizer
     model.to(device)
 
     for epoch in range(num_epochs):
+        # Start time for each epoch
+        epoch_start_time = timeit.default_timer()
+
         # Training Phase
         model.train()
         train_loss = 0.0
         correct_train_preds = 0
         total_train_preds = 0
         
-        for inputs, labels in train_loader:
+        # Add tqdm for progress bar during training
+        for inputs, labels in tqdm(train_loader, desc=f"Epoch {epoch + 1} Training", ncols=100):
             # Ensure inputs and labels are moved to the correct device
-            inputs, labels = inputs.to(torch.float32).to(device), labels.to(torch.long).to(device)  # labels to long for CrossEntropyLoss
+            inputs, labels = inputs.to(torch.float32).to(device), labels.to(torch.long).to(device)
 
             optimizer.zero_grad()
             outputs = model(inputs)
@@ -293,13 +298,13 @@ def train_and_evaluate_2d(model, train_loader, test_loader, criterion, optimizer
             train_loss += loss.item()
             
             # Calculate accuracy
-            _, preds = torch.max(outputs, 1)  # For multi-class, take the class with the highest score
+            _, preds = torch.max(outputs, 1)
             correct_train_preds += (preds == labels).sum().item()
             total_train_preds += labels.size(0)
 
         avg_train_loss = train_loss / len(train_loader)
         train_losses.append(avg_train_loss)
-        train_accuracy = correct_train_preds / total_train_preds  # Accuracy for training set
+        train_accuracy = correct_train_preds / total_train_preds
         train_accuracies.append(train_accuracy)
 
         # Evaluation Phase (Test Loss and Accuracy)
@@ -307,8 +312,12 @@ def train_and_evaluate_2d(model, train_loader, test_loader, criterion, optimizer
         test_loss = 0.0
         correct_test_preds = 0
         total_test_preds = 0
+        all_preds = []
+        all_labels = []
+        
+        # Add tqdm for progress bar during evaluation
         with torch.no_grad():
-            for inputs, labels in test_loader:
+            for inputs, labels in tqdm(test_loader, desc=f"Epoch {epoch + 1} Evaluation", ncols=100):
                 # Ensure inputs and labels are moved to the correct device
                 inputs, labels = inputs.to(torch.float32).to(device), labels.to(torch.long).to(device)
 
@@ -317,18 +326,27 @@ def train_and_evaluate_2d(model, train_loader, test_loader, criterion, optimizer
                 test_loss += loss.item()
 
                 # Calculate accuracy
-                _, preds = torch.max(outputs, 1)  # For multi-class, take the class with the highest score
+                _, preds = torch.max(outputs, 1)
                 correct_test_preds += (preds == labels).sum().item()
                 total_test_preds += labels.size(0)
 
+                # Collect all predictions and labels for confusion matrix
+                all_preds.extend(preds.cpu().numpy())
+                all_labels.extend(labels.cpu().numpy())
+
         avg_test_loss = test_loss / len(test_loader)
         test_losses.append(avg_test_loss)
-        test_accuracy = correct_test_preds / total_test_preds  # Accuracy for test set
+        test_accuracy = correct_test_preds / total_test_preds
         test_accuracies.append(test_accuracy)
 
         # Print training and test loss every 'epochs_rate' epochs
         if (epoch + 1) % epochs_rate == 0:
             print(f"Epoch {epoch + 1}, Train Loss: {avg_train_loss:.4f}, Train Accuracy: {train_accuracy:.4f}, Test Loss: {avg_test_loss:.4f}, Test Accuracy: {test_accuracy:.4f}")
+
+        # Calculate the time taken for the epoch
+        epoch_end_time = timeit.default_timer()
+        epoch_time = epoch_end_time - epoch_start_time
+        print(f"Epoch {epoch + 1} took {epoch_time:.2f} seconds")
 
     # Plot the training and test loss over epochs
     plt.figure(figsize=(10, 6))
@@ -353,19 +371,6 @@ def train_and_evaluate_2d(model, train_loader, test_loader, criterion, optimizer
     plt.show()
 
     # After training, evaluate the model on the test set
-    all_preds = []
-    all_labels = []
-    with torch.no_grad():
-        for inputs, labels in test_loader:
-            # Ensure inputs and labels are moved to the correct device
-            inputs, labels = inputs.to(torch.float32).to(device), labels.to(torch.long).to(device)
-            
-            outputs = model(inputs)
-            _, preds = torch.max(outputs, 1)  # Get the class with the highest probability
-            all_preds.extend(preds.cpu().numpy())  # Move predictions back to CPU for metrics calculation
-            all_labels.extend(labels.cpu().numpy())  # Move labels back to CPU
-
-    # Metrics Calculation
     accuracy = accuracy_score(all_labels, all_preds)
     precision = precision_score(all_labels, all_preds, average='macro')  # Average for multi-class classification
     recall = recall_score(all_labels, all_preds, average='macro')
@@ -378,8 +383,20 @@ def train_and_evaluate_2d(model, train_loader, test_loader, criterion, optimizer
     print(f"Test F1-Score: {f1:.4f}")
     print(f"Test ROC-AUC: {roc_auc:.4f}")
 
+    # Generate and plot confusion matrix
+    cm = confusion_matrix(all_labels, all_preds)
+    cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]  # Normalize by row (true label)
+    
+    # Plot confusion matrix
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(cm_normalized, annot=True, fmt='.2f', cmap='Blues', xticklabels=np.arange(cm.shape[0]), yticklabels=np.arange(cm.shape[1]))
+    plt.title('Normalized Confusion Matrix')
+    plt.xlabel('Predicted Labels')
+    plt.ylabel('True Labels')
+    plt.show()
+
     # Record and print total time taken for training and evaluation
-    end_time = time.time()  # End timing the whole training process
+    end_time = timeit.default_timer()  # End timing the whole training process
     total_time = end_time - start_time  # Calculate the total time taken
     print(f"Total training and evaluation time: {total_time:.2f} seconds")
     

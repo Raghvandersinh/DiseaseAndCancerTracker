@@ -100,97 +100,18 @@ class XrayModel(nn.Module):
         x = self.classifier(x)
         return x
 
-model = models.resnet18(pretrained=True).to(device)
+model = model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
 loss = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(params=model.parameters(), lr=0.01)
 # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
 
 def train_and_eval():
-    trained_model, _ = hp.train_and_evaluate_2d(model, train_dataloader, test_dataloader, loss, optimizer, device, 1, 5)
+    trained_model, _ = hp.train_and_evaluate_2d(model, train_dataloader, test_dataloader, loss, optimizer, device, 5, 5)
     model_save_path = Path.cwd()/'Models'/'SavedModels'/'PneumoniaTrackerModel.pth'
     torch.save(trained_model.state_dict(), model_save_path)
     print(f"Model saved at: {model_save_path}")
 
     
-    
-
-
-    
 if __name__ == "__main__":
     train_and_eval()
 
-# def calculate_metrics(y_true, y_pred):
-#     accuracy = accuracy_score(y_true, y_pred)
-#     precision = precision_score(y_true, y_pred)
-#     recall = recall_score(y_true, y_pred)
-#     f1 = f1_score(y_true, y_pred)
-#     conf_matrix = confusion_matrix(y_true, y_pred)
-
-#     print(f"Accuracy: {accuracy:.4f}")
-#     print(f"Precision: {precision:.4f}")
-#     print(f"Recall: {recall:.4f}")
-#     print(f"F1-score: {f1:.4f}")
-#     print(f"Confusion Matrix:\n{conf_matrix}")
-
-#     return accuracy, precision, recall, f1, conf_matrix
-
-
-# Training loop
-# epochs = 10  # Adjust as needed
-
-# for epoch in range(epochs):
-#     model.train()
-#     start_time = time.time()
-#     running_loss = 0.0
-
-#     for i, data in enumerate(train_dataloader, 0):
-#         inputs, labels = data[0].to(device), data[1].to(device)
-#         labels = labels.unsqueeze(1).float()
-
-#         optimizer.zero_grad()
-#         outputs = model(inputs)
-#         loss_value = loss(outputs, labels.float())
-#         loss_value.backward()
-#         optimizer.step()
-
-#         running_loss += loss_value.item()
-
-#     end_time = time.time()
-
-#     epoch_loss = running_loss / len(train_dataloader)
-#     print(f"Epoch {epoch + 1}/{epochs}, Loss: {epoch_loss:.4f}, Time: {end_time - start_time:.2f}s")
-
-#     Validation
-#     model.eval()
-#     y_true_val = []
-#     y_pred_val = []
-
-#     with torch.no_grad():
-#       for inputs, labels in val_dataloader:
-#           inputs, labels = inputs.to(device), labels.to(device)
-#           outputs = model(inputs)
-#           _, predicted = torch.max(outputs, 1)
-
-#           y_true_val.extend(labels.cpu().numpy())
-#           y_pred_val.extend(predicted.cpu().numpy())
-
-#     val_accuracy, val_precision, val_recall, val_f1, _ = calculate_metrics(y_true_val, y_pred_val)
-#     print(f"Validation Accuracy: {val_accuracy:.4f}")
-
-#     scheduler.step()
-
-
-# model.eval()
-# y_true_test = []
-# y_pred_test = []
-# with torch.no_grad():
-#     for inputs, labels in test_dataloader:
-#         inputs, labels = inputs.to(device), labels.to(device)
-#         outputs = model(inputs)
-#         _, predicted = torch.max(outputs, 1)
-
-#         y_true_test.extend(labels.cpu().numpy())
-#         y_pred_test.extend(predicted.cpu().numpy())
-
-# test_accuracy, test_precision, test_recall, test_f1, conf_matrix = calculate_metrics(y_true_test, y_pred_test)
-# print(f"Test Accuracy: {test_accuracy:.4f}")
