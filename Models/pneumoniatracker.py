@@ -53,9 +53,9 @@ train_dataset = datasets.ImageFolder(root=train_path, transform=my_transforms)
 test_dataset = datasets.ImageFolder(root=test_path, transform=my_transforms)
 val_dataset = datasets.ImageFolder(root=val_path, transform=my_transforms)
 
-train_dataloader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-test_dataloader = DataLoader(test_dataset, batch_size=32, shuffle=True)
-val_dataloader = DataLoader(val_dataset, batch_size=32, shuffle=True)
+train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True)
+test_dataloader = DataLoader(test_dataset, batch_size=64, shuffle=True)
+val_dataloader = DataLoader(val_dataset, batch_size=64, shuffle=True)
 
 plt.figure(figsize=(10, 10))
 plt.imshow(imread(f"{Path.cwd()}/dataset/chest_xray/chest_xray/train/NORMAL/IM-0115-0001.jpeg"))
@@ -102,7 +102,7 @@ class XrayModel(nn.Module):
 
 model = model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
 loss = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(params=model.parameters(), lr=0.01)
+optimizer = torch.optim.Adam(params=model.parameters(), lr=0.00001)
 # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
 
 def train_and_eval():
