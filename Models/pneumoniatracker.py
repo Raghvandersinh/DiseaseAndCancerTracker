@@ -22,6 +22,16 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from Models.HelperFunction import helperFunctions as hp
 import torchvision.models as models 
 import timm
+import time
+import pprint
+from sklearn.model_selection import KFold
+import torch
+import torch.nn as nn
+from sklearn.metrics import precision_score, recall_score, f1_score
+import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+import numpy as np
+from tqdm import tqdm
 
 folder_file_path = Path.cwd()/'dataset'/'chest_xray'
 folder_location = Path.cwd()/'dataset'
@@ -125,21 +135,254 @@ def create_model(h, device):
         model = model.to(device)
         return model
     
+def train_model(h, model, train_loader, val_loader, optimizer, criterion, scheduler, device):
+    train_loss_history = []
+    val_loss_history = []
 
+    best_val_loss = float('inf')
+    patience_counter = 0
+    patience = h["early_stopping_patience"]  # The patience threshold for early stopping
+
+    start_time = time.time()
+    num_epochs = h["num_epochs"]
+
+    for epoch in range(num_epochs):
+        model.train()
+        running_loss = 0.0
+
+        progress_bar = tqdm(train_loader, desc=f"Training epoch {epoch + 1}/{num_epochs}", leave=False, unit="mini-batch")
+        for inputs, labels in progress_bar:
+            inputs, labels = inputs.to(device), labels.to(device)      
+            optimizer.zero_grad()
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+
+            running_loss += loss.item()
+            progress_bar.set_postfix(loss=loss.item())
+
+
+        val_loss, _, _, _ = evaluate_model(h, model, val_loader, criterion, device)
+        scheduler.step(val_loss)
+        
+        # Store the loss history
+        train_loss = running_loss / len(train_loader)
+        train_loss_history.append(train_loss)
+        val_loss_history.append(val_loss)
+
+        # Early stop check
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            torch.save(model.state_dict(), 'best_model_weights.pth')
+            patience_counter = 0
+        else:
+            patience_counter += 1
+
+        if patience_counter >= patience:
+            print(f"Early stopping at epoch {epoch + 1}.")
+            break        
+
+        # Calculate elapsed time and remaining time
+        elapsed_time = time.time() - start_time
+        avg_time_per_epoch = elapsed_time / (epoch + 1)
+        remaining_epochs = num_epochs - (epoch + 1)
+        remaining_time = avg_time_per_epoch * remaining_epochs
+
+        # Convert remaining time to minutes and seconds
+        remaining_time_min, remaining_time_sec = divmod(remaining_time, 60)
+
+        print(f"Epoch [{epoch + 1}/{num_epochs}]: Train Loss: {running_loss / len(train_loader):.4f}, Val Loss: {val_loss:.4f}, Remaining Time: {remaining_time_min:.0f}m {remaining_time_sec:.0f}s")
+
+    # Loading best model 
+    if patience!=float("inf"):
+        model.load_state_dict(torch.load('best_model_weights.pth'))
+
+    return train_loss_history, val_loss_history
+
+
+def evaluate_model(h, model, data_loader, criterion, device):
+    true_labels = []
+    predicted_labels = []
+    total_loss = 0.0
+    correct = 0
+    total = 0
+    model.eval()
+    with torch.no_grad():
+        for inputs, labels in data_loader:
+            inputs, labels = inputs.to(device), labels.to(device)          
+
+            outputs = model(inputs)
+
+            loss = criterion(outputs, labels)
+            total_loss += loss.item()
+
+            _, predicted = torch.max(outputs.data, 1)
+            correct += (predicted == labels).sum().item()
+            total += labels.size(0)
+
+            true_labels.extend(labels.cpu().numpy())
+            predicted_labels.extend(predicted.cpu().numpy())
+
+    epoch_loss = total_loss / len(data_loader)
+    epoch_accuracy = correct / total
+
+    return epoch_loss, epoch_accuracy, true_labels, predicted_labels
+
+def plot_metrics(h, train_loss_history, val_loss_history, test_loss, test_accuracy, true_labels, predicted_labels):
+    print(f"Accuracy on the test set: {test_accuracy:.2%}")
+
+    # Calculate precision, recall, and F1 score using the accumulated true labels and predictions
+    precision = precision_score(true_labels, predicted_labels)
+    recall = recall_score(true_labels, predicted_labels)
+    f1 = f1_score(true_labels, predicted_labels)
+    print(f"Precision: {precision:.2f}, Recall: {recall:.2f}, F1 score: {f1:.2f}")
+
+    # Calculate the confusion matrix using the accumulated true labels and predictions
+    cm = confusion_matrix(true_labels, predicted_labels)
+
+    # Visualize the confusion matrix
+    plt.figure()
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=["Normal", "Pneumonia"])
+    disp.plot()
+
+    # Plot the learning curves
+    plt.figure()
+    plt.plot(train_loss_history, label='Train Loss')
+    plt.plot(val_loss_history, label='Validation Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Loss history')
+    plt.legend()
+    plt.show()
+    
+def create_scheduler(h, optimizer, lr):
+    scheduler_name = h["scheduler"]
+    if (scheduler_name==""):
+        return None
+    if (scheduler_name=="CosineAnnealingLR10"):
+        return torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=h["num_epochs"], eta_min=lr*0.1)
+    if (scheduler_name=="ReduceLROnPlateau5"):
+        return torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
+    print ("Error. Unknown scheduler name '{scheduler_name}'")
+    return None 
+
+def check_solution(h, device, verbose,train_loader, val_loader, test_loader):
+    model = create_model(h, device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=h["lr"])
+    scheduler = create_scheduler(h, optimizer, h["lr"])
+    criterion = nn.CrossEntropyLoss()
+    train_loss_history, val_loss_history = train_model(h, model, train_loader, val_loader, optimizer, criterion, scheduler, device)
+    test_loss, test_accuracy, true_labels, predicted_labels = evaluate_model(h, model, test_loader, criterion, device)
+    if verbose:
+        plot_metrics(h, train_loss_history, val_loss_history, test_loss, test_accuracy, true_labels, predicted_labels)
+
+    f1 = f1_score(true_labels, predicted_labels)
+
+    return f1, test_accuracy
+    
+# Get number of CPU cores
+num_cpu_cores = os.cpu_count()
+print(f"Number of CPU cores: {num_cpu_cores}")
+
+# Get GPU name
+if torch.cuda.is_available():
+    gpu_name = torch.cuda.get_device_name(0)
+    print(f"GPU name: {gpu_name}")
+else:
+    print("No GPU available")
+
+# Print hyperparameters for records
+print("Hyperparameters:")
+pprint.pprint(h)
+
+f1_array = np.array([])
+accuracy_array = np.array([])
+start_time = time.time()
+
+repeats = 5
+for i in range(repeats):
+    print(f"Running solution {i+1}/{repeats}")
+    f1, accuracy = hp.check_solution(h, device, verbose=(i==0))
+    print(f"F1 = {f1:.2f}, accuracy = {accuracy:.2f} ")
+    f1_array = np.append(f1_array, f1)
+    accuracy_array = np.append(accuracy_array, accuracy) 
+
+# Calculate elapsed time and remaining time
+repeat_time = (time.time() - start_time) / repeats
+repeat_time_min, repeat_time_sec = divmod(repeat_time, 60)
+
+# Printing final results
+print("Results")
+print(f"F1 List: {f1_array}")
+print(f"Accuracy List: {accuracy_array}")
+print(f"F1: {np.mean(f1_array):.1%} (+-{np.std(f1_array):.1%})")
+print(f"Accuracy: {np.mean(accuracy_array):.1%} (+-{np.std(accuracy_array):.1%})")
+print(f"Time of one solution: {repeat_time_min:.0f}m {repeat_time_sec:.0f}s")
+
+print(f" | {np.mean(f1_array):.1%} (+-{np.std(f1_array):.1%}) | {np.mean(accuracy_array):.1%} (+-{np.std(accuracy_array):.1%}) | {repeat_time_min:.0f}m {repeat_time_sec:.0f}s")
+
+# Print hyperparameters for reminding what the final data is fore
+print("Hyperparameters:")
+pprint.pprint(h)
 
     
-model = models.efficientnet_v2_l
-loss = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(params=model.parameters(), lr=0.001, weight_decay=1e-5)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.3)
+# model = models.efficientnet_v2_l
+# loss = nn.CrossEntropyLoss()
+# optimizer = torch.optim.Adam(params=model.parameters(), lr=0.001, weight_decay=1e-5)
+# scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.3)
 
-def train_and_eval():
-    trained_model, _ = hp.train_and_evaluate_2d(model, train_dataloader, test_dataloader, loss, optimizer,scheduler,device, 6, 1)
-    model_save_path = Path.cwd()/'Models'/'SavedModels'/'PneumoniaTrackerModel.pth'
-    torch.save(trained_model.state_dict(), model_save_path)
-    print(f"Model saved at: {model_save_path}")
+# def train_and_eval():
+#     trained_model, _ = hp.train_and_evaluate_2d(model, train_dataloader, test_dataloader, loss, optimizer,scheduler,device, 6, 1)
+#     model_save_path = Path.cwd()/'Models'/'SavedModels'/'PneumoniaTrackerModel.pth'
+#     torch.save(trained_model.state_dict(), model_save_path)
+#     print(f"Model saved at: {model_save_path}")
 
     
 if __name__ == "__main__":
-    train_and_eval()
+    # train_and_eval()
+    # Get number of CPU cores
+    num_cpu_cores = os.cpu_count()
+    print(f"Number of CPU cores: {num_cpu_cores}")
+
+    # Get GPU name
+    if torch.cuda.is_available():
+        gpu_name = torch.cuda.get_device_name(0)
+        print(f"GPU name: {gpu_name}")
+    else:
+        print("No GPU available")
+
+    # Print hyperparameters for records
+    print("Hyperparameters:")
+    pprint.pprint(h)
+
+    f1_array = np.array([])
+    accuracy_array = np.array([])
+    start_time = time.time()
+
+    repeats = 5
+    for i in range(repeats):
+        print(f"Running solution {i+1}/{repeats}")
+        f1, accuracy = hp.check_solution(h, device, verbose=(i==0))
+        print(f"F1 = {f1:.2f}, accuracy = {accuracy:.2f} ")
+        f1_array = np.append(f1_array, f1)
+        accuracy_array = np.append(accuracy_array, accuracy) 
+
+    # Calculate elapsed time and remaining time
+    repeat_time = (time.time() - start_time) / repeats
+    repeat_time_min, repeat_time_sec = divmod(repeat_time, 60)
+
+    # Printing final results
+    print("Results")
+    print(f"F1 List: {f1_array}")
+    print(f"Accuracy List: {accuracy_array}")
+    print(f"F1: {np.mean(f1_array):.1%} (+-{np.std(f1_array):.1%})")
+    print(f"Accuracy: {np.mean(accuracy_array):.1%} (+-{np.std(accuracy_array):.1%})")
+    print(f"Time of one solution: {repeat_time_min:.0f}m {repeat_time_sec:.0f}s")
+
+    print(f" | {np.mean(f1_array):.1%} (+-{np.std(f1_array):.1%}) | {np.mean(accuracy_array):.1%} (+-{np.std(accuracy_array):.1%}) | {repeat_time_min:.0f}m {repeat_time_sec:.0f}s")
+
+    # Print hyperparameters for reminding what the final data is fore
+    print("Hyperparameters:")
+    pprint.pprint(h)
 
