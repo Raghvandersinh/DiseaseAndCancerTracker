@@ -272,8 +272,6 @@ def train_and_evaluate_2d(model, train_loader, test_loader, criterion, optimizer
     test_accuracies = []   # List to store the test accuracy for each epoch
     model.to(device)
 
-    # Scheduler definition
-    scheduler
 
     for epoch in range(num_epochs):
         # Start time for each epoch

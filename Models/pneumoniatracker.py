@@ -21,10 +21,23 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from Models.HelperFunction import helperFunctions as hp
 import torchvision.models as models 
+import timm
 
 folder_file_path = Path.cwd()/'dataset'/'chest_xray'
 folder_location = Path.cwd()/'dataset'
 
+
+h = {
+    "num_epochs": 10,
+    "batch_size": 256,
+    "image_size": 224, 
+    "fc_size": 512,
+    "lr": 0.001,
+    "model": "efficientnet_v2",
+    "scheduler": "CosineAnnealingLR10",
+    "balance": True,
+    "early_stopping_patience": float("inf"),
+}
 if folder_file_path.exists():
     print(f"Folder already exists at: {folder_file_path}")
 else:
@@ -33,15 +46,21 @@ else:
 torch.manual_seed(42)
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-my_transforms = transforms.Compose([
+
+data_transforms = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+])
+
+data_transforms_train = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
     transforms.RandomHorizontalFlip(p=0.5),
-    transforms.RandomRotation(degrees=45),
-    transforms.RandomAffine(degrees=15, translate = None, scale=(0.9,1.1), shear=None),
-    transforms.RandomCrop(size = (224, 224)),
-    transforms.RandomGrayscale(p=0.2),
-    transforms.ColorJitter(contrast=0.2),
+    transforms.RandomRotation(20),
+    transforms.RandomApply([transforms.RandomAffine(0, translate=(0.1, 0.1))], p=0.5),
+    transforms.RandomApply([transforms.RandomPerspective(distortion_scale=0.2)], p=0.5),
+    transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
@@ -49,64 +68,73 @@ train_path = Path.cwd()/'dataset'/'chest_xray'/"chest_xray"/'train'
 test_path = Path.cwd()/'dataset'/'chest_xray'/"chest_xray"/'test'
 val_path = Path.cwd()/'dataset'/'chest_xray'/"chest_xray"/'val'
 
-train_dataset = datasets.ImageFolder(root=train_path, transform=my_transforms)
-test_dataset = datasets.ImageFolder(root=test_path, transform=my_transforms)
-val_dataset = datasets.ImageFolder(root=val_path, transform=my_transforms)
+train_dataset = datasets.ImageFolder(root=train_path, transform=data_transforms_train)
+test_dataset = datasets.ImageFolder(root=test_path, transform=data_transforms)
+val_dataset = datasets.ImageFolder(root=val_path, transform=data_transforms)
 
-train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True)
-test_dataloader = DataLoader(test_dataset, batch_size=64, shuffle=True)
-val_dataloader = DataLoader(val_dataset, batch_size=64, shuffle=True)
+train_dataloader = DataLoader(train_dataset, batch_size=256, shuffle=True, num_workers=4)
+test_dataloader = DataLoader(test_dataset, batch_size=256, shuffle=True, num_workers=4)
+val_dataloader = DataLoader(val_dataset, batch_size=256, shuffle=True, num_workers=4)
 
 plt.figure(figsize=(10, 10))
 plt.imshow(imread(f"{Path.cwd()}/dataset/chest_xray/chest_xray/train/NORMAL/IM-0115-0001.jpeg"))
+plt.imshow(imread(f"{Path.cwd()}/dataset/chest_xray/chest_xray/train/PNEUMONIA/person1_bacteria_1.jpeg"))
+plt.imshow(imread(f"{Path.cwd()}/dataset/chest_xray/chest_xray/train/PNEUMONIA/person80_virus_150.jpeg"))
+print("Hello")
+
 plt.show()
-class XrayModel(nn.Module):
-    def __init__(self, num_classes=3):  # Assuming binary classification (Normal/Pneumonia)
-        super(XrayModel, self).__init__()
 
-        self.features = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.BatchNorm2d(64),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-
-            nn.Conv2d(64, 128, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.BatchNorm2d(128),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-
-            nn.Conv2d(128, 256, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.BatchNorm2d(256),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-
-            nn.Conv2d(256, 512, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.BatchNorm2d(512),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-        )
-
-        self.classifier = nn.Sequential(
-            nn.AdaptiveAvgPool2d((1, 1)),  # Global Average Pooling
+def create_model(h, device):
+    if (h["model"]=="efficientnetv2"):
+        model = timm.create_model("tf_efficientnetv2_b0", pretrained=True, num_classes=2)
+        model = model.to(device)
+        return model  
+    if (h["model"]=="fc"):
+        model = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(512, 256),  # Adjust hidden size as needed
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.5),  # Add dropout for regularization
-            nn.Linear(256, num_classes),
+            nn.Linear(3 * h["image_size"] * h["image_size"], h["fc1_size"]),
+            nn.ReLU(),
+            nn.Linear(h["fc1_size"], 2)
         )
+        model = model.to(device)
+        return model
+    if (h["model"]=="cnn"):
+        model = nn.Sequential(
+            nn.Conv2d(3, 16, 3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Conv2d(16, 32, 3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Conv2d(32, 64, 3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Flatten(),
+            nn.Dropout(0.25),
+            nn.Linear(64 * (h["image_size"] // 8) * (h["image_size"] // 8), 512),
+            nn.ReLU(),
+            nn.Dropout(0.25),
+            nn.Linear(512, 2)
+        )
+        model = model.to(device)
+        return model
+    if (h["model"]=="resnet34"):
+        model = models.resnet34(pretrained=True)
+        num_features = model.fc.in_features
+        model.fc = nn.Linear(num_features, 2)
+        model = model.to(device)
+        return model
+    
 
-    def forward(self, x):
-        x = self.features(x)
-        x = self.classifier(x)
-        return x
 
-model = model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
+    
+model = models.efficientnet_v2_l
 loss = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(params=model.parameters(), lr=0.001)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.1)
+optimizer = torch.optim.Adam(params=model.parameters(), lr=0.001, weight_decay=1e-5)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.3)
 
 def train_and_eval():
-    trained_model, _ = hp.train_and_evaluate_2d(model, train_dataloader, test_dataloader, loss, optimizer,scheduler,device, 10, 1)
+    trained_model, _ = hp.train_and_evaluate_2d(model, train_dataloader, test_dataloader, loss, optimizer,scheduler,device, 6, 1)
     model_save_path = Path.cwd()/'Models'/'SavedModels'/'PneumoniaTrackerModel.pth'
     torch.save(trained_model.state_dict(), model_save_path)
     print(f"Model saved at: {model_save_path}")
