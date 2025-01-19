@@ -263,7 +263,7 @@ def cross_validate(model, X, y,optimizer, loss_fn,cv=5, scoring='accuracy',  reg
 
     return mean_accuracy, fold_accuracies, fold_losses
 
-def train_and_evaluate_2d(model, train_loader, test_loader, criterion, optimizer, device, num_epochs=150, epochs_rate=10):
+def train_and_evaluate_2d(model, train_loader, test_loader, criterion, optimizer,scheduler, device, num_epochs=150, epochs_rate=10): 
     start_time = timeit.default_timer()  # Start timing the whole training process
 
     train_losses = []  # List to store the training loss for each epoch
@@ -271,6 +271,9 @@ def train_and_evaluate_2d(model, train_loader, test_loader, criterion, optimizer
     train_accuracies = []  # List to store the training accuracy for each epoch
     test_accuracies = []   # List to store the test accuracy for each epoch
     model.to(device)
+
+    # Scheduler definition
+    scheduler
 
     for epoch in range(num_epochs):
         # Start time for each epoch
@@ -347,6 +350,9 @@ def train_and_evaluate_2d(model, train_loader, test_loader, criterion, optimizer
         epoch_end_time = timeit.default_timer()
         epoch_time = epoch_end_time - epoch_start_time
         print(f"Epoch {epoch + 1} took {epoch_time:.2f} seconds")
+
+        # Step the scheduler at the end of each epoch
+        scheduler.step()
 
     # Plot the training and test loss over epochs
     plt.figure(figsize=(10, 6))

@@ -37,8 +37,8 @@ my_transforms = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
     transforms.RandomHorizontalFlip(p=0.5),
-    transforms.RandomRotation(degrees=15),
-    transforms.RandomAffine(degrees=0, translate = None, scale=(0.9,1.1), shear=None),
+    transforms.RandomRotation(degrees=45),
+    transforms.RandomAffine(degrees=15, translate = None, scale=(0.9,1.1), shear=None),
     transforms.RandomCrop(size = (224, 224)),
     transforms.RandomGrayscale(p=0.2),
     transforms.ColorJitter(contrast=0.2),
@@ -61,7 +61,7 @@ plt.figure(figsize=(10, 10))
 plt.imshow(imread(f"{Path.cwd()}/dataset/chest_xray/chest_xray/train/NORMAL/IM-0115-0001.jpeg"))
 plt.show()
 class XrayModel(nn.Module):
-    def __init__(self, num_classes=2):  # Assuming binary classification (Normal/Pneumonia)
+    def __init__(self, num_classes=3):  # Assuming binary classification (Normal/Pneumonia)
         super(XrayModel, self).__init__()
 
         self.features = nn.Sequential(
@@ -102,11 +102,11 @@ class XrayModel(nn.Module):
 
 model = model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
 loss = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(params=model.parameters(), lr=0.00001)
-# scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
+optimizer = torch.optim.Adam(params=model.parameters(), lr=0.001)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.1)
 
 def train_and_eval():
-    trained_model, _ = hp.train_and_evaluate_2d(model, train_dataloader, test_dataloader, loss, optimizer, device, 5, 5)
+    trained_model, _ = hp.train_and_evaluate_2d(model, train_dataloader, test_dataloader, loss, optimizer,scheduler,device, 10, 1)
     model_save_path = Path.cwd()/'Models'/'SavedModels'/'PneumoniaTrackerModel.pth'
     torch.save(trained_model.state_dict(), model_save_path)
     print(f"Model saved at: {model_save_path}")
