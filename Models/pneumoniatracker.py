@@ -9,97 +9,96 @@ Original file is located at
 
 import torch
 import torch.nn as nn
-import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
-import sklearn
 from pathlib import Path
-from google.colab import files
 import os
-import zipfile
-import torchvision
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from matplotlib.image import imread
 from matplotlib import pyplot as plt
-import time
+import kaggle 
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from Models.HelperFunction import helperFunctions as hp
+import torchvision.models as models 
+from PIL import Image
+import timm
 
-path = Path('/root/.kaggle/kaggle.json')
-if path.exists():
-  print("File already exists")
+
+folder_file_path = Path.cwd()/'dataset'/'chest_xray'
+folder_location = Path.cwd()/'dataset'
+
+if folder_file_path.exists():
+    print(f"Folder already exists at: {folder_file_path}")
 else:
-  files.upload()
-  os.mkdir("/root/.kaggle/")
-  os.rename("kaggle.json", path)
-
-database_Path = Path("/dataset/chest_xray")
-
-if database_Path.exists():
-  print("File already exists ")
-else:
-  !kaggle datasets download -d paultimothymooney/chest-xray-pneumonia
-  with zipfile.ZipFile("chest-xray-pneumonia.zip", "r") as zip_ref:
-    zip_ref.extractall("/dataset")
+    kaggle.api.dataset_download_files("paultimothymooney/chest-xray-pneumonia", path=folder_location, unzip=True)
 
 torch.manual_seed(42)
 device = "cuda" if torch.cuda.is_available() else "cpu"
-device
 
-my_transforms = transforms.Compose([
+
+train_transforms = transforms.Compose([
+    transforms.RandomRotation(20),  # Randomly rotate the image within a range of (-20, 20) degrees
+    transforms.RandomHorizontalFlip(p=0.5),  # Randomly flip the image horizontally with 50% probability
+    transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1),  # Randomly change the brightness, contrast, saturation, and hue
+    transforms.RandomApply([transforms.RandomAffine(0, translate=(0.1, 0.1))], p=0.5),  # Randomly apply affine transformations with translation
+    transforms.RandomApply([transforms.RandomPerspective(distortion_scale=0.2)], p=0.5),  # Randomly apply perspective transformations
+    transforms.Resize(size=(224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                            std=[0.229, 0.224, 0.225])
+])
+test_val_transforms = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
-    transforms.RandomHorizontalFlip(p=0.5),
-    transforms.RandomRotation(degrees=15),
-    transforms.RandomAffine(degrees=0, translate = None, scale=(0.9,1.1), shear=None),
-    transforms.RandomCrop(size = (224, 224)),
-    transforms.RandomGrayscale(p=0.2),
-    transforms.ColorJitter(contrast=0.2),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
-train_dataset = datasets.ImageFolder(root="/dataset/chest_xray/train", transform=my_transforms)
-test_dataset = datasets.ImageFolder(root="/dataset/chest_xray/test", transform=my_transforms)
-val_dataset = datasets.ImageFolder(root="/dataset/chest_xray/val", transform=my_transforms)
+train_path = Path.cwd()/'dataset'/'chest_xray'/"chest_xray"/'train'
+test_path = Path.cwd()/'dataset'/'chest_xray'/"chest_xray"/'test'
+val_path = Path.cwd()/'dataset'/'chest_xray'/"chest_xray"/'val'
 
-train_dataloader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-test_dataloader = DataLoader(test_dataset, batch_size=32, shuffle=True)
-val_dataloader = DataLoader(val_dataset, batch_size=32, shuffle=True)
+train_dataset = datasets.ImageFolder(root=train_path, transform=train_transforms)
+test_dataset = datasets.ImageFolder(root=test_path, transform=test_val_transforms)
+val_dataset = datasets.ImageFolder(root=val_path, transform=test_val_transforms)
 
-imread("/dataset/chest_xray/train/NORMAL/IM-0115-0001.jpeg")
-plt.imshow(imread("/dataset/chest_xray/train/NORMAL/IM-0115-0001.jpeg"))
+train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True)
+test_dataloader = DataLoader(test_dataset, batch_size=64, shuffle=False)
+val_dataloader = DataLoader(val_dataset, batch_size=64, shuffle=False)
 
+plt.figure(figsize=(10, 10))
+plt.imshow(imread(f"{Path.cwd()}/dataset/chest_xray/chest_xray/train/NORMAL/IM-0115-0001.jpeg"))
+plt.imshow(imread(f"{Path.cwd()}/dataset/chest_xray/chest_xray/train/PNEUMONIA/person1_bacteria_1.jpeg"))
+plt.imshow(imread(f"{Path.cwd()}/dataset/chest_xray/chest_xray/train/PNEUMONIA/person80_virus_150.jpeg"))
+print("Hello")
+
+plt.show()
 class XrayModel(nn.Module):
-    def __init__(self, num_classes=2):  # Assuming binary classification (Normal/Pneumonia)
+    def __init__(self, num_classes=3):  # Assuming binary classification (Normal/Pneumonia)
         super(XrayModel, self).__init__()
 
-        # Feature Extraction Layers:
         self.features = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=3, padding=1),
+            nn.Conv2d(3, 8, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
-            nn.BatchNorm2d(64),
+            nn.BatchNorm2d(8),
             nn.MaxPool2d(kernel_size=2, stride=2),
 
-            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.Conv2d(8, 16, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
-            nn.BatchNorm2d(128),
+            nn.BatchNorm2d(16),
             nn.MaxPool2d(kernel_size=2, stride=2),
 
-            nn.Conv2d(128, 256, kernel_size=3, padding=1),
+            nn.Conv2d(16, 32, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
-            nn.BatchNorm2d(256),
+            nn.BatchNorm2d(32),
             nn.MaxPool2d(kernel_size=2, stride=2),
 
-            nn.Conv2d(256, 512, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.BatchNorm2d(512),
-            nn.MaxPool2d(kernel_size=2, stride=2),
         )
 
-        # Classification Layers:
         self.classifier = nn.Sequential(
             nn.AdaptiveAvgPool2d((1, 1)),  # Global Average Pooling
             nn.Flatten(),
-            nn.Linear(512, 256),  # Adjust hidden size as needed
+            nn.Linear(32, 256),  # Adjust hidden size as needed
             nn.ReLU(inplace=True),
             nn.Dropout(0.5),  # Add dropout for regularization
             nn.Linear(256, num_classes),
@@ -110,87 +109,20 @@ class XrayModel(nn.Module):
         x = self.classifier(x)
         return x
 
-model = XrayModel().to(device)
-loss = nn.BCEWithLogitsLoss()
-optimizer = torch.optim.Adam(params=model.parameters(), lr=0.01)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
+# model = models.efficientnet_v2_s(weights=models.EfficientNet_V2_S_Weights.IMAGENET1K_V1)
+print(device)
+model = models.resnet34(weights = models.ResNet34_Weights.IMAGENET1K_V1).to(device)
+loss = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(params=model.parameters(), lr=0.001)
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=5, eta_min=0.001*0.1)
 
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
+def train_and_eval():
+    trained_model, _ = hp.train_and_evaluate_2d(model, train_dataloader, test_dataloader, loss, optimizer,scheduler,device, 5, 1)
+    model_save_path = Path.cwd()/'Models'/'SavedModels'/'PneumoniaTrackerModel.pth'
+    torch.save(trained_model.state_dict(), model_save_path)
+    print(f"Model saved at: {model_save_path}")
 
+    
+if __name__ == "__main__":
+    train_and_eval()
 
-def calculate_metrics(y_true, y_pred):
-    accuracy = accuracy_score(y_true, y_pred)
-    precision = precision_score(y_true, y_pred)
-    recall = recall_score(y_true, y_pred)
-    f1 = f1_score(y_true, y_pred)
-    conf_matrix = confusion_matrix(y_true, y_pred)
-
-    print(f"Accuracy: {accuracy:.4f}")
-    print(f"Precision: {precision:.4f}")
-    print(f"Recall: {recall:.4f}")
-    print(f"F1-score: {f1:.4f}")
-    print(f"Confusion Matrix:\n{conf_matrix}")
-
-    return accuracy, precision, recall, f1, conf_matrix
-
-# prompt: Create a Training/Testing Loop
-
-# Training loop
-epochs = 10  # Adjust as needed
-
-for epoch in range(epochs):
-    model.train()
-    start_time = time.time()
-    running_loss = 0.0
-
-    for i, data in enumerate(train_dataloader, 0):
-        inputs, labels = data[0].to(device), data[1].to(device)
-        labels = labels.unsqueeze(1).float()
-
-        optimizer.zero_grad()
-        outputs = model(inputs)
-        loss_value = loss(outputs, labels.float())
-        loss_value.backward()
-        optimizer.step()
-
-        running_loss += loss_value.item()
-
-    end_time = time.time()
-
-    epoch_loss = running_loss / len(train_dataloader)
-    print(f"Epoch {epoch + 1}/{epochs}, Loss: {epoch_loss:.4f}, Time: {end_time - start_time:.2f}s")
-
-    # Validation
-    model.eval()
-    y_true_val = []
-    y_pred_val = []
-
-    with torch.no_grad():
-      for inputs, labels in val_dataloader:
-          inputs, labels = inputs.to(device), labels.to(device)
-          outputs = model(inputs)
-          _, predicted = torch.max(outputs, 1)
-
-          y_true_val.extend(labels.cpu().numpy())
-          y_pred_val.extend(predicted.cpu().numpy())
-
-    val_accuracy, val_precision, val_recall, val_f1, _ = calculate_metrics(y_true_val, y_pred_val)
-    print(f"Validation Accuracy: {val_accuracy:.4f}")
-
-    scheduler.step()
-
-# Testing
-model.eval()
-y_true_test = []
-y_pred_test = []
-with torch.no_grad():
-    for inputs, labels in test_dataloader:
-        inputs, labels = inputs.to(device), labels.to(device)
-        outputs = model(inputs)
-        _, predicted = torch.max(outputs, 1)
-
-        y_true_test.extend(labels.cpu().numpy())
-        y_pred_test.extend(predicted.cpu().numpy())
-
-test_accuracy, test_precision, test_recall, test_f1, conf_matrix = calculate_metrics(y_true_test, y_pred_test)
-print(f"Test Accuracy: {test_accuracy:.4f}")
