@@ -27,4 +27,5 @@ class LungCancerTrackerModel(models.Model):
     swallowing_difficulty = models.IntegerField(choices=YES_NO_CHOICES)
     chest_pain = models.IntegerField(choices=YES_NO_CHOICES)
 
-    
+class PneumoniaXray(models.Model):
+    hotel_Main_Img = models.ImageField(upload_to='images/')

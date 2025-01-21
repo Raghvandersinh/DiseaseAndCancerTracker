@@ -1,3 +1,4 @@
+<!-- filepath: /c:/MLProject/DiseaseAndCancerTracker/Frontend/diseaseTrackerApp/templates/PneumoniaTracker.html -->
 {% extends "base.html" %}
 
 {% block title %}
@@ -8,12 +9,16 @@
     <h1>PneumoniaTracker</h1>
     <p>Upload an X-ray image to classify if it shows signs of pneumonia.</p>
     
-    <form id="upload-form" action="/upload" method="post" enctype="multipart/form-data">
-        <label for="file-input">Choose an image:</label>
-        <input type="file" id="file-input" name="file" accept="image/*" required>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
         <button type="submit" class="btn btn-primary">Upload</button>
     </form>
     
     <div id="result" class="mt-3">
+        {% if image_url %}
+            <h3>Uploaded X-ray Image:</h3>
+            <img src="{{ image_url }}" alt="Uploaded X-ray Image" class="img-fluid">
+        {% endif %}
     </div>
 {% endblock %}

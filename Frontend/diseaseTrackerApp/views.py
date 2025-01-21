@@ -1,6 +1,8 @@
 from django.http import JsonResponse
 from django.shortcuts import render
-from .forms import LungCancerForm, HeartDiseaseForm
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+from .forms import LungCancerForm, HeartDiseaseForm, PneumoniaForm
 from pathlib import Path
 import torch
 import joblib
@@ -8,6 +10,7 @@ import pandas as pd
 import os
 import sys
 from django.views.decorators.csrf import csrf_exempt
+import base64
 
 # Add the Models directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
@@ -18,14 +21,27 @@ def home(request):
     return render(request, 'home.html')
 
 def PneumoniaTracker(request):
-    return render(request, 'PneumoniaTracker.html')
+    if request.method == 'POST':
+        form = PneumoniaForm(request.POST, request.FILES)
+        if form.is_valid():
+            image = form.cleaned_data['Xray']
+            # Convert the image to a base64 string
+            image_data = image.read()
+            image_base64 = base64.b64encode(image_data).decode('utf-8')
+            image_url = f"data:{image.content_type};base64,{image_base64}"
+            return render(request, 'PneumoniaTracker.html', {'form': form, 'image_url': image_url})
+    else:
+        form = PneumoniaForm()
+    return render(request, 'PneumoniaTracker.html', {'form': form})
 
 @csrf_exempt
 def upload_image(request):
     if request.method == 'POST':
-        # Handle the uploaded image here
-        # For now, just return a success response
-        return JsonResponse({'message': 'Image uploaded successfully'})
+        form = PneumoniaForm(request.POST, request.FILES)
+        if form.is_valid():
+            image = form.cleaned_data['Xray']
+            image_url = image.url
+            return JsonResponse({'image_url': image_url})
     return JsonResponse({'error': 'Invalid request'}, status=400)
 
 def HeartDiseaseTracker(request):

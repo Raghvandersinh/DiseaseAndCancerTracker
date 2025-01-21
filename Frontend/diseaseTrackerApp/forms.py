@@ -43,4 +43,7 @@ class HeartDiseaseForm(forms.Form):
     slope = forms.ChoiceField(choices=[(0, 'Upsloping'), (1, 'Flat'), (2, 'Downsloping')], label='Slope of the Peak Exercise ST Segment')
     ca = forms.ChoiceField(choices=[(0, '0'), (1, '1'), (2, '2'), (3, '3')], label='Number of Major Vessels Colored by Flourosopy')
     thal = forms.ChoiceField(choices=[(0, 'Normal'), (1, 'Fixed Defect'), (2, 'Reversable Defect')], label='Thalassemia')
-    
+
+
+class PneumoniaForm(forms.Form):
+    Xray = forms.ImageField(label='Upload X-ray Image')
