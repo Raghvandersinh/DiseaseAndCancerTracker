@@ -1,3 +1,4 @@
+from django.http import JsonResponse
 from django.shortcuts import render
 from .forms import LungCancerForm, HeartDiseaseForm
 from pathlib import Path
@@ -6,6 +7,7 @@ import joblib
 import pandas as pd
 import os
 import sys
+from django.views.decorators.csrf import csrf_exempt
 
 # Add the Models directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
@@ -14,6 +16,17 @@ from Models.heartdiseasetrackermodel import HeartDiseaseClassification
 
 def home(request):
     return render(request, 'home.html')
+
+def PneumoniaTracker(request):
+    return render(request, 'PneumoniaTracker.html')
+
+@csrf_exempt
+def upload_image(request):
+    if request.method == 'POST':
+        # Handle the uploaded image here
+        # For now, just return a success response
+        return JsonResponse({'message': 'Image uploaded successfully'})
+    return JsonResponse({'error': 'Invalid request'}, status=400)
 
 def HeartDiseaseTracker(request):
     result = None
