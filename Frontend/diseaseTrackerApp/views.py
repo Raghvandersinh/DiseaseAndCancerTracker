@@ -11,11 +11,28 @@ import os
 import sys
 from django.views.decorators.csrf import csrf_exempt
 import base64
+from PIL import Image
+from torchvision import transforms, models
+import numpy as np
 
 # Add the Models directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from Models.lungcancermodel import LungCancerClassifier
 from Models.heartdiseasetrackermodel import HeartDiseaseClassification
+
+# Load the trained model
+model_path = Path(__file__).resolve().parent.parent.parent / 'Models' / 'SavedModels' / 'PneumoniaTrackerModel.pth'
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = models.resnet34(weights=models.ResNet34_Weights.IMAGENET1K_V1).to(device)
+model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
+model.eval()
+
+# Define the image transformations
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+])
 
 def home(request):
     return render(request, 'home.html')
@@ -25,11 +42,23 @@ def PneumoniaTracker(request):
         form = PneumoniaForm(request.POST, request.FILES)
         if form.is_valid():
             image = form.cleaned_data['Xray']
-            # Convert the image to a base64 string
-            image_data = image.read()
+            image = Image.open(image).convert('RGB')  # Convert image to RGB
+            image = transform(image).unsqueeze(0).to(device)
+
+            # Make the prediction
+            with torch.no_grad():
+                output = model(image)
+                _, predicted = torch.max(output, 1)
+                class_names = ['Normal', 'Pneumonia']
+                prediction = class_names[predicted.item()]
+
+            # Convert the image to a base64 string for display
+            image_data = image.cpu().squeeze().permute(1, 2, 0).numpy()
+            image_data = np.ascontiguousarray(image_data)  # Ensure the array is C-contiguous
             image_base64 = base64.b64encode(image_data).decode('utf-8')
-            image_url = f"data:{image.content_type};base64,{image_base64}"
-            return render(request, 'PneumoniaTracker.html', {'form': form, 'image_url': image_url})
+            image_url = f"data:image/jpeg;base64,{image_base64}"
+
+            return render(request, 'PneumoniaTracker.html', {'form': form, 'image_url': image_url, 'prediction': prediction})
     else:
         form = PneumoniaForm()
     return render(request, 'PneumoniaTracker.html', {'form': form})

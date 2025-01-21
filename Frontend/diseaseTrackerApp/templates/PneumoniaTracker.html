@@ -19,6 +19,7 @@
         {% if image_url %}
             <h3>Uploaded X-ray Image:</h3>
             <img src="{{ image_url }}" alt="Uploaded X-ray Image" class="img-fluid">
+            <h3>Prediction: {{ prediction }}</h3>
         {% endif %}
     </div>
 {% endblock %}

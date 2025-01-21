@@ -46,4 +46,4 @@ class HeartDiseaseForm(forms.Form):
 
 
 class PneumoniaForm(forms.Form):
-    Xray = forms.ImageField(label='Upload X-ray Image')
+    Xray = forms.ImageField(label='Upload X-ray')
