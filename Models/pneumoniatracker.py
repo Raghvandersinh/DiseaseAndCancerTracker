@@ -31,6 +31,7 @@ folder_location = Path.cwd()/'dataset'
 if folder_file_path.exists():
     print(f"Folder already exists at: {folder_file_path}")
 else:
+    folder_location.mkdir(parents=True, exist_ok=True)
     kaggle.api.dataset_download_files("paultimothymooney/chest-xray-pneumonia", path=folder_location, unzip=True)
 
 torch.manual_seed(42)
