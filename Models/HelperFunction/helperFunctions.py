@@ -133,136 +133,6 @@ def train_and_evaluate(model, train_loader, test_loader, criterion, optimizer,de
     }
 
 
-def cross_validate(model, X, y,optimizer, loss_fn,cv=5, scoring='accuracy',  regression=False, device=None, batch_size=32, epochs=1000  ):
-    
-    kf = KFold(n_splits=cv, shuffle=True, random_state=42)
-    fold_accuracies = []
-    fold_precisions = []
-    fold_aucs = []
-    fold_losses = []
-    
-    # Loop through the splits
-    for fold, (train_idx, val_idx) in enumerate(kf.split(X)):
-        print(f"Training fold {fold + 1}/{cv}")
-        
-        X_train, X_val = torch.tensor(X[train_idx], dtype=torch.float32).to(device), torch.tensor(X[val_idx], dtype=torch.float32).to(device)
-        y_train, y_val = torch.tensor(y[train_idx], dtype=torch.float32).to(device), torch.tensor(y[val_idx], dtype=torch.float32).to(device)
-
-        # Reset model parameters to avoid data leakage between folds
-        model.apply(lambda m: m.reset_parameters() if hasattr(m, 'reset_parameters') else None)
-
-        # Create DataLoader for batch processing
-        train_data = torch.utils.data.TensorDataset(X_train, y_train)
-        val_data = torch.utils.data.TensorDataset(X_val, y_val)
-        train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True)
-        val_loader = torch.utils.data.DataLoader(val_data, batch_size=batch_size, shuffle=False)
-
-        # Training loop
-        model.train()
-        epoch_accuracies = []
-        epoch_losses = []
-
-        for epoch in range(epochs):
-            running_loss = 0.0
-            correct_preds = 0
-            total_preds = 0
-            
-            for batch_X, batch_y in train_loader:
-                optimizer.zero_grad()
-                predictions = model(batch_X).squeeze()
-                loss = loss_fn(predictions, batch_y)
-                loss.backward()
-                optimizer.step()
-
-                running_loss += loss.item()
-                
-                # Calculate accuracy
-                preds = (predictions > 0.5).float()
-                correct_preds += (preds == batch_y).sum().item()
-                total_preds += len(batch_y)
-            
-            epoch_loss = running_loss / len(train_loader)
-            epoch_accuracy = correct_preds / total_preds
-            epoch_losses.append(epoch_loss)
-            epoch_accuracies.append(epoch_accuracy)
-
-        # Store fold results
-        fold_losses.append(np.mean(epoch_losses))
-        fold_accuracies.append(np.mean(epoch_accuracies))
-
-        # Evaluate the model
-        # Evaluate the model
-        model.eval()
-        with torch.no_grad():
-            val_preds = []
-            val_labels = []
-            for batch_X, batch_y in val_loader:
-                val_preds_batch = model(batch_X).squeeze().cpu().numpy()  # Get probabilities
-                val_labels_batch = batch_y.cpu().numpy()
-                
-                val_preds.extend(val_preds_batch)  # Store probabilities for AUC
-                val_labels.extend(val_labels_batch)
-
-            # Calculate metrics
-            accuracy = accuracy_score(val_labels, (np.array(val_preds) > 0.5).astype(int))
-            precision = precision_score(val_labels, (np.array(val_preds) > 0.5).astype(int))
-
-            # Calculate AUC
-            auc = roc_auc_score(val_labels, val_preds)  # Use probabilities for AUC
-            
-            # Confusion matrix for correct and incorrect predictions
-            tn, fp, fn, tp = confusion_matrix(val_labels, (np.array(val_preds) > 0.5).astype(int)).ravel()
-            correct_predictions = tp + tn
-            incorrect_predictions = fp + fn
-            fpr, tpr, _ = roc_curve(val_labels, val_preds)
-
-            print(f"Fold {fold + 1} - Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, AUC: {auc:.4f}")
-            print(f"Correct Predictions: {correct_predictions}, Incorrect Predictions: {incorrect_predictions}")
-
-    mean_accuracy = np.mean(fold_accuracies)
-    
-    # Plotting the results
-    plt.figure(figsize=(12, 6))
-    plt.subplot(1, 2, 1)
-    plt.plot(fold_accuracies, marker='o', label='Accuracy per fold')
-    plt.xlabel('Fold')
-    plt.ylabel('Accuracy')
-    plt.title('Accuracy per fold in Cross-validation')
-    plt.grid(True)
-    plt.xticks(np.arange(cv))
-
-    plt.subplot(1, 2, 2)
-    plt.plot(fold_losses, marker='o', label='Loss per fold')
-    plt.xlabel('Fold')
-    plt.ylabel('Loss')
-    plt.title('Loss per fold in Cross-validation')
-    plt.grid(True)
-    plt.xticks(np.arange(cv))
-
-    plt.tight_layout()
-    plt.show()
-    
-    cm = confusion_matrix(val_labels, (np.array(val_preds) > 0.5).astype(int))
-    plt.figure(figsize=(6, 6))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['Pred: 0', 'Pred: 1'], yticklabels=['True: 0', 'True: 1'])
-    plt.xlabel('Predicted')
-    plt.ylabel('True')
-    plt.title(f'Confusion Matrix for Fold {fold + 1}')
-    plt.show()
-    
-    plt.figure(figsize=(6, 6))
-    plt.plot(fpr, tpr, marker='o', label=f"Fold {fold + 1}")
-    plt.plot([0, 1], [0, 1], 'k--')  # Random classifier line
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title(f'ROC Curve for Fold {fold + 1}')
-    plt.grid(True)
-    plt.legend(loc='lower right')
-    plt.show()
-
-
-    return mean_accuracy, fold_accuracies, fold_losses
-
 def train_and_evaluate_2d(model, train_loader, test_loader, criterion, optimizer,scheduler, device, num_epochs=150, epochs_rate=10): 
     start_time = timeit.default_timer()  # Start timing the whole training process
 
@@ -411,5 +281,131 @@ def train_and_evaluate_2d(model, train_loader, test_loader, criterion, optimizer
         'f1': f1,
         'roc_auc': roc_auc
     }
+    
+def cross_validate(model, train_dataloader, test_dataloader, optimizer, loss_fn, cv=5, scoring='accuracy', regression=False, device=None, batch_size=32, epochs=1000):
+    
+    kf = KFold(n_splits=cv, shuffle=True, random_state=42)
+    fold_accuracies = []
+    fold_precisions = []
+    fold_aucs = []
+    fold_losses = []
+    
+    # Loop through the splits
+    for fold, (train_idx, val_idx) in enumerate(kf.split(train_dataloader.dataset)):
+        print(f"Training fold {fold + 1}/{cv}")
+        
+        # Create fold dataloaders
+        train_subset = torch.utils.data.Subset(train_dataloader.dataset, train_idx)
+        val_subset = torch.utils.data.Subset(train_dataloader.dataset, val_idx)
+
+        train_loader = torch.utils.data.DataLoader(train_subset, batch_size=batch_size, shuffle=True)
+        val_loader = torch.utils.data.DataLoader(val_subset, batch_size=batch_size, shuffle=False)
+
+        # Reset model parameters to avoid data leakage between folds
+        model.apply(lambda m: m.reset_parameters() if hasattr(m, 'reset_parameters') else None)
+
+        # Training loop
+        model.train()
+        epoch_accuracies = []
+        epoch_losses = []
+
+        for epoch in range(epochs):
+            running_loss = 0.0
+            correct_preds = 0
+            total_preds = 0
+            
+            for batch_X, batch_y in train_loader:
+                optimizer.zero_grad()
+                predictions = model(batch_X.to(device)).squeeze()
+                loss = loss_fn(predictions, batch_y.to(device))
+                loss.backward()
+                optimizer.step()
+
+                running_loss += loss.item()
+                
+                # Calculate accuracy
+                preds = (predictions > 0.5).float()
+                correct_preds += (preds == batch_y.to(device)).sum().item()
+                total_preds += len(batch_y)
+            
+            epoch_loss = running_loss / len(train_loader)
+            epoch_accuracy = correct_preds / total_preds
+            epoch_losses.append(epoch_loss)
+            epoch_accuracies.append(epoch_accuracy)
+
+        # Store fold results
+        fold_losses.append(np.mean(epoch_losses))
+        fold_accuracies.append(np.mean(epoch_accuracies))
+
+        # Evaluate the model
+        model.eval()
+        with torch.no_grad():
+            val_preds = []
+            val_labels = []
+            for batch_X, batch_y in val_loader:
+                val_preds_batch = model(batch_X.to(device)).squeeze().cpu().numpy()  # Get probabilities
+                val_labels_batch = batch_y.cpu().numpy()
+                
+                val_preds.extend(val_preds_batch)  # Store probabilities for AUC
+                val_labels.extend(val_labels_batch)
+
+            # Calculate metrics
+            accuracy = accuracy_score(val_labels, (np.array(val_preds) > 0.5).astype(int))
+            precision = precision_score(val_labels, (np.array(val_preds) > 0.5).astype(int))
+
+            # Calculate AUC
+            auc = roc_auc_score(val_labels, val_preds)  # Use probabilities for AUC
+            
+            # Confusion matrix for correct and incorrect predictions
+            tn, fp, fn, tp = confusion_matrix(val_labels, (np.array(val_preds) > 0.5).astype(int)).ravel()
+            correct_predictions = tp + tn
+            incorrect_predictions = fp + fn
+            fpr, tpr, _ = roc_curve(val_labels, val_preds)
+
+            print(f"Fold {fold + 1} - Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, AUC: {auc:.4f}")
+            print(f"Correct Predictions: {correct_predictions}, Incorrect Predictions: {incorrect_predictions}")
+
+    mean_accuracy = np.mean(fold_accuracies)
+    
+    # Plotting the results
+    plt.figure(figsize=(12, 6))
+    plt.subplot(1, 2, 1)
+    plt.plot(fold_accuracies, marker='o', label='Accuracy per fold')
+    plt.xlabel('Fold')
+    plt.ylabel('Accuracy')
+    plt.title('Accuracy per fold in Cross-validation')
+    plt.grid(True)
+    plt.xticks(np.arange(cv))
+
+    plt.subplot(1, 2, 2)
+    plt.plot(fold_losses, marker='o', label='Loss per fold')
+    plt.xlabel('Fold')
+    plt.ylabel('Loss')
+    plt.title('Loss per fold in Cross-validation')
+    plt.grid(True)
+    plt.xticks(np.arange(cv))
+
+    plt.tight_layout()
+    plt.show()
+    
+    cm = confusion_matrix(val_labels, (np.array(val_preds) > 0.5).astype(int))
+    plt.figure(figsize=(6, 6))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['Pred: 0', 'Pred: 1'], yticklabels=['True: 0', 'True: 1'])
+    plt.xlabel('Predicted')
+    plt.ylabel('True')
+    plt.title(f'Confusion Matrix for Fold {fold + 1}')
+    plt.show()
+    
+    plt.figure(figsize=(6, 6))
+    plt.plot(fpr, tpr, marker='o', label=f"Fold {fold + 1}")
+    plt.plot([0, 1], [0, 1], 'k--')  # Random classifier line
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title(f'ROC Curve for Fold {fold + 1}')
+    plt.grid(True)
+    plt.legend(loc='lower right')
+    plt.show()
+
+    return mean_accuracy, fold_accuracies, fold_losses
     
     
