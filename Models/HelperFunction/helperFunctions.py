@@ -282,7 +282,8 @@ def train_and_evaluate_2d(model, train_loader, test_loader, criterion, optimizer
         'roc_auc': roc_auc
     }
     
-def cross_validate(model, train_dataloader, test_dataloader, optimizer, loss_fn, cv=5, scoring='accuracy', regression=False, device=None, batch_size=32, epochs=1000):
+def cross_validate(model, train_dataloader, optimizer, loss_fn, cv=5, scoring='accuracy', regression=False, device=None, batch_size=32, epochs=1000):
+
     
     kf = KFold(n_splits=cv, shuffle=True, random_state=42)
     fold_accuracies = []
@@ -352,21 +353,19 @@ def cross_validate(model, train_dataloader, test_dataloader, optimizer, loss_fn,
             # Calculate metrics
             accuracy = accuracy_score(val_labels, (np.array(val_preds) > 0.5).astype(int))
             precision = precision_score(val_labels, (np.array(val_preds) > 0.5).astype(int))
-
-            # Calculate AUC
             auc = roc_auc_score(val_labels, val_preds)  # Use probabilities for AUC
             
-            # Confusion matrix for correct and incorrect predictions
-            tn, fp, fn, tp = confusion_matrix(val_labels, (np.array(val_preds) > 0.5).astype(int)).ravel()
-            correct_predictions = tp + tn
-            incorrect_predictions = fp + fn
-            fpr, tpr, _ = roc_curve(val_labels, val_preds)
+            fold_precisions.append(precision)
+            fold_aucs.append(auc)
 
+            # Print fold metrics
             print(f"Fold {fold + 1} - Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, AUC: {auc:.4f}")
-            print(f"Correct Predictions: {correct_predictions}, Incorrect Predictions: {incorrect_predictions}")
 
     mean_accuracy = np.mean(fold_accuracies)
-    
+    mean_precision = np.mean(fold_precisions)
+    mean_auc = np.mean(fold_aucs)
+    mean_loss = np.mean(fold_losses)
+
     # Plotting the results
     plt.figure(figsize=(12, 6))
     plt.subplot(1, 2, 1)
@@ -387,25 +386,13 @@ def cross_validate(model, train_dataloader, test_dataloader, optimizer, loss_fn,
 
     plt.tight_layout()
     plt.show()
-    
-    cm = confusion_matrix(val_labels, (np.array(val_preds) > 0.5).astype(int))
-    plt.figure(figsize=(6, 6))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['Pred: 0', 'Pred: 1'], yticklabels=['True: 0', 'True: 1'])
-    plt.xlabel('Predicted')
-    plt.ylabel('True')
-    plt.title(f'Confusion Matrix for Fold {fold + 1}')
-    plt.show()
-    
-    plt.figure(figsize=(6, 6))
-    plt.plot(fpr, tpr, marker='o', label=f"Fold {fold + 1}")
-    plt.plot([0, 1], [0, 1], 'k--')  # Random classifier line
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title(f'ROC Curve for Fold {fold + 1}')
-    plt.grid(True)
-    plt.legend(loc='lower right')
-    plt.show()
 
-    return mean_accuracy, fold_accuracies, fold_losses
+    # Summary of results
+    print(f"Mean Accuracy: {mean_accuracy:.4f}")
+    print(f"Mean Precision: {mean_precision:.4f}")
+    print(f"Mean AUC: {mean_auc:.4f}")
+    print(f"Mean Loss: {mean_loss:.4f}")
+
+    return mean_accuracy, mean_precision, mean_auc, mean_loss, fold_accuracies, fold_precisions, fold_aucs, fold_losses
     
     
