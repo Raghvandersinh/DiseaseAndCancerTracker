@@ -12,6 +12,24 @@ import time
 import timeit
 from tqdm import tqdm
 
+class EarlyStopping:
+    def __init__(self, patience=10, delta=0):
+        self.patience = patience
+        self.delta = delta
+        self.counter = 0
+        self.best_loss = None
+
+    def step(self, val_loss):
+        if self.best_loss is None:
+            self.best_loss = val_loss
+        elif val_loss < self.best_loss - self.delta:
+            self.best_loss = val_loss
+            self.counter = 0
+        else:
+            self.counter += 1
+            if self.counter >= self.patience:
+                return True
+        return False
 
 def train_and_evaluate(model, train_loader, test_loader, criterion, optimizer,device, num_epochs=150, epochs_rate=10):
     train_losses = []  # List to store the training loss for each epoch
@@ -282,7 +300,7 @@ def train_and_evaluate_2d(model, train_loader, test_loader, criterion, optimizer
         'roc_auc': roc_auc
     }
     
-def cross_validate(model, train_dataloader, optimizer, loss_fn, cv=5, scoring='accuracy', regression=False, device=None, batch_size=32, epochs=1000):
+def cross_validate(model, train_dataloader, optimizer, loss_fn, cv=5, scoring='accuracy', regression=False, device=None, batch_size=32, epochs=1000, patience=10):
 
     
     kf = KFold(n_splits=cv, shuffle=True, random_state=42)
@@ -304,6 +322,7 @@ def cross_validate(model, train_dataloader, optimizer, loss_fn, cv=5, scoring='a
 
         # Reset model parameters to avoid data leakage between folds
         model.apply(lambda m: m.reset_parameters() if hasattr(m, 'reset_parameters') else None)
+        early_stopping = EarlyStopping(patience=patience, delta=0)
 
         # Training loop
         model.train()
@@ -333,6 +352,10 @@ def cross_validate(model, train_dataloader, optimizer, loss_fn, cv=5, scoring='a
             epoch_accuracy = correct_preds / total_preds
             epoch_losses.append(epoch_loss)
             epoch_accuracies.append(epoch_accuracy)
+            
+            if early_stopping.step(epoch_loss):
+                print(f"Early stopping at epoch {epoch + 1}")
+                break
 
         # Store fold results
         fold_losses.append(np.mean(epoch_losses))
