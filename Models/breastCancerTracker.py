@@ -62,6 +62,7 @@ torch.manual_seed(42)
 
 right_skewed_col = ['area_mean', 'texture_mean', 'perimeter_mean', 'radius_mean', 'compactness_mean', 'concavity_mean', 'concave points_mean', 'fractal_dimension_mean', 'area_se', 'texture_se', 'perimeter_se', 'radius_se', 'compactness_se', 'concavity_se', 'concave points_se', 'smoothness_se', 'symmetry_se', 'fractal_dimension_se', 'area_worst', 'texture_worst', 'perimeter_worst', 'radius_worst', 'compactness_worst', 'concavity_worst', 'concave points_worst', 'symmetry_worst', 'fractal_dimension_worst']
 X_train[right_skewed_col]= PowerTransformer().fit_transform(X_train[right_skewed_col])
+X_test[right_skewed_col]= PowerTransformer().fit_transform(X_test[right_skewed_col])
 
 
 
@@ -100,11 +101,11 @@ class breastCancerModel(nn.Module):
     def __init__(self):
         super().__init__()
         self.model = nn.Sequential(
-            nn.Linear(30, 64),
+            nn.Linear(30, 32),
             nn.ReLU(),
-            nn.Linear(64, 32),
+            nn.Linear(32, 16),
             nn.ReLU(),
-            nn.Linear(32, 1),
+            nn.Linear(16, 1),
             nn.Sigmoid()
         )
     
@@ -120,22 +121,12 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 
 def train_and_eval():
     basePath = Path(__file__).resolve().parent.parent
-    trained_models, metrics = hp.train_and_evaluate(model,train_dataloader, test_dataloader,loss, optimizer,device, 125, 50)
     model_save_path = basePath/'Models'/'SavedModels'/'BreastCancerTracker.pth'
-    torch.save(trained_models.state_dict(), model_save_path)
-    print(f"Model saved at: {model_save_path}")
+    trained_models, metrics = hp.train_and_evaluate(model,train_dataloader, test_dataloader,loss, optimizer,device, 150, 10, patience=10, save_path=model_save_path)
 
 #125 Epoch and 0.0001 learning rate
 if __name__ == "__main__":
-    mean_accuracy, mean_precision, mean_auc, mean_loss, fold_accuracies, fold_precisions, fold_aucs, fold_losses = hp.cross_validate(model, train_dataloader, optimizer, loss, cv=5, scoring='accuracy', epochs=125)
-    print("Mean Accuracy:", mean_accuracy)
-    print("Mean Precision:", mean_precision)
-    print("Mean AUC:", mean_auc)    
-    print("Mean Loss:", mean_loss)  
-    print("Fold Accuracies:", fold_accuracies)  
-    print("Fold Precisions:", fold_precisions)  
-    print("Fold AUCs:", fold_aucs)  
-    print("Fold Losses:", fold_losses)  
+    train_and_eval() 
 
 
 

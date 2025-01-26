@@ -31,12 +31,17 @@ class EarlyStopping:
                 return True
         return False
 
-def train_and_evaluate(model, train_loader, test_loader, criterion, optimizer,device, num_epochs=150, epochs_rate=10):
+def train_and_evaluate(model, train_loader, test_loader, criterion, optimizer, device, num_epochs=150, epochs_rate=10, patience=10, save_path='best_model.pth'):
     train_losses = []  # List to store the training loss for each epoch
     test_losses = []   # List to store the test loss for each epoch
     train_accuracies = []  # List to store the training accuracy for each epoch
     test_accuracies = []   # List to store the test accuracy for each epoch
     model.to(device)
+    
+    best_test_loss = float('inf')  # Initialize the best test loss to a large number
+    epochs_without_improvement = 0  # Counter for epochs without improvement
+    best_model_state = None  # To store the best model state for early stopping
+    
     for epoch in range(num_epochs):
         # Training Phase
         model.train()
@@ -90,14 +95,34 @@ def train_and_evaluate(model, train_loader, test_loader, criterion, optimizer,de
         test_accuracy = correct_test_preds / total_test_preds  # Accuracy for test set
         test_accuracies.append(test_accuracy)
 
-        # Print training and test loss every 10 epochs
+        # Print training and test loss every `epochs_rate` epochs
         if (epoch + 1) % epochs_rate == 0:
             print(f"Epoch {epoch + 1}, Train Loss: {avg_train_loss:.4f}, Train Accuracy: {train_accuracy:.4f}, Test Loss: {avg_test_loss:.4f}, Test Accuracy: {test_accuracy:.4f}")
 
+        # Early stopping: Check if test loss has improved
+        if avg_test_loss < best_test_loss:
+            best_test_loss = avg_test_loss
+            epochs_without_improvement = 0
+            best_model_state = model.state_dict()  # Save the best model state
+            # Save the model with the best validation loss
+            torch.save(model.state_dict(), save_path)  # Save the model state to the specified path
+            print(f"Model saved at epoch {epoch + 1} with test loss: {avg_test_loss:.4f}")
+        else:
+            epochs_without_improvement += 1
+
+        # If no improvement for `patience` epochs, stop training
+        if epochs_without_improvement >= patience:
+            print(f"Early stopping triggered after {epoch + 1} epochs with no improvement in test loss.")
+            break
+
+    # Restore the best model from early stopping
+    if best_model_state is not None:
+        model.load_state_dict(best_model_state)
+
     # Plot the training and test loss over epochs
     plt.figure(figsize=(10, 6))
-    plt.plot(range(1, num_epochs + 1), train_losses, label='Train Loss', color='blue')
-    plt.plot(range(1, num_epochs + 1), test_losses, label='Test Loss', color='red', linestyle='--')
+    plt.plot(range(1, len(train_losses) + 1), train_losses, label='Train Loss', color='blue')
+    plt.plot(range(1, len(test_losses) + 1), test_losses, label='Test Loss', color='red', linestyle='--')
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
     plt.title('Train and Test Loss Over Epochs')
@@ -107,8 +132,8 @@ def train_and_evaluate(model, train_loader, test_loader, criterion, optimizer,de
 
     # Plot the training and test accuracy over epochs
     plt.figure(figsize=(10, 6))
-    plt.plot(range(1, num_epochs + 1), train_accuracies, label='Train Accuracy', color='blue')
-    plt.plot(range(1, num_epochs + 1), test_accuracies, label='Test Accuracy', color='red', linestyle='--')
+    plt.plot(range(1, len(train_accuracies) + 1), train_accuracies, label='Train Accuracy', color='blue')
+    plt.plot(range(1, len(test_accuracies) + 1), test_accuracies, label='Test Accuracy', color='red', linestyle='--')
     plt.xlabel('Epochs')
     plt.ylabel('Accuracy')
     plt.title('Train and Test Accuracy Over Epochs')
