@@ -1,5 +1,5 @@
 {% extends "base.html" %} 
-
+{% load static %}
 {% block content %}
 <h1 class="title">Heart Disease Tracker</h1>
 <div class="form-container">
@@ -19,6 +19,13 @@
 
 {% block extra_css %}
 <style>
+    body {
+        background-image: url("{% static 'Images/HeartDiseaseBackground.jpg' %}");
+        background-size: 90% 100%;
+        background-position: center -100px;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+    }
     .title {
         text-align: center;
         color:rgb(183, 63, 73);
@@ -32,10 +39,12 @@
         margin-top: 20px;
     }
     form {
-        background-color:rgb(244, 227, 229);;
+        background-color:rgb(244, 227, 229, 0.8);
         padding: 20px;
         border-radius: 10px;
         box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        border-radius: 10px;
     }
     .submit-button {
         background-color: rgb(183, 63, 73);;
@@ -65,10 +74,10 @@
     .result-message {
         font-size: 18px;
     }
-    .result-message.no-cancer {
+    .result-message.no-heartdisease {
         color: green;
     }
-    .result-message.yes-cancer {
+    .result-message.yes-heartdisease {
         color: red;
     }
 </style>
