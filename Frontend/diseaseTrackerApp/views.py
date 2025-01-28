@@ -197,3 +197,42 @@ def LungCancerTracker(request):
         form = LungCancerForm()
 
     return render(request, 'LungCancerTrackerModel.html', {'form': form, 'result': result})
+
+def breastCancerTracker(request):
+    result = None   
+    if request.method == 'POST':
+        form = LungCancerForm(request.POST)
+        if form.is_valid():
+            input_data = [
+                float(form.cleaned_data['mean_radius']),
+                float(form.cleaned_data['mean_texture']),
+                float(form.cleaned_data['mean_perimeter']),
+                float(form.cleaned_data['mean_area']),
+                float(form.cleaned_data['mean_smoothness']),
+                float(form.cleaned_data['mean_compactness']),
+                float(form.cleaned_data['mean_concavity']),
+                float(form.cleaned_data['mean_concave_points']),
+                float(form.cleaned_data['mean_symmetry']),
+                float(form.cleaned_data['mean_fractal_dimension']),
+                float(form.cleaned_data['radius_error']),
+                float(form.cleaned_data['texture_error']),
+                float(form.cleaned_data['perimeter_error']),
+                float(form.cleaned_data['area_error']),
+                float(form.cleaned_data['smoothness_error']),
+                float(form.cleaned_data['compactness_error']),
+                float(form.cleaned_data['concavity_error']),
+                float(form.cleaned_data['concave_points_error']),
+                float(form.cleaned_data['symmetry_error']),
+                float(form.cleaned_data['fractal_dimension_error']),
+                float(form.cleaned_data['worst_radius']),
+                float(form.cleaned_data['worst_texture']),
+                float(form.cleaned_data['worst_perimeter']),
+                float(form.cleaned_data['worst_area']),
+                float(form.cleaned_data['worst_smoothness']),
+                float(form.cleaned_data['worst_compactness']),
+                float(form.cleaned_data['worst_concavity']),
+                float(form.cleaned_data['worst_concave_points']),
+                float(form.cleaned_data['worst_symmetry']),
+                float(form.cleaned_data['worst_fractal_dimension'])
+            ]
+            
