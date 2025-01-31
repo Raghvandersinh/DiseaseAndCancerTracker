@@ -2,7 +2,7 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
-from .forms import LungCancerForm, HeartDiseaseForm, PneumoniaForm
+from .forms import LungCancerForm, HeartDiseaseForm, PneumoniaForm, BreastCancerForm
 from pathlib import Path
 import torch
 import joblib
@@ -19,6 +19,7 @@ import numpy as np
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from Models.lungcancermodel import LungCancerClassifier
 from Models.heartdiseasetrackermodel import HeartDiseaseClassification
+from Models.breastCancerTracker import BreastCancerClassifier
 
 # Load the trained model
 model_path = Path(__file__).resolve().parent.parent.parent / 'Models' / 'SavedModels' / 'PneumoniaTrackerModel.pth'
@@ -198,41 +199,67 @@ def LungCancerTracker(request):
 
     return render(request, 'LungCancerTrackerModel.html', {'form': form, 'result': result})
 
-def breastCancerTracker(request):
+def BreastCancerTracker(request):
     result = None   
+    form = BreastCancerForm()  # Initialize the form before the 'if' block
     if request.method == 'POST':
-        form = LungCancerForm(request.POST)
+        form = BreastCancerForm(request.POST)  # reinitialize form with POST data
         if form.is_valid():
             input_data = [
-                float(form.cleaned_data['mean_radius']),
-                float(form.cleaned_data['mean_texture']),
-                float(form.cleaned_data['mean_perimeter']),
-                float(form.cleaned_data['mean_area']),
-                float(form.cleaned_data['mean_smoothness']),
-                float(form.cleaned_data['mean_compactness']),
-                float(form.cleaned_data['mean_concavity']),
-                float(form.cleaned_data['mean_concave_points']),
-                float(form.cleaned_data['mean_symmetry']),
-                float(form.cleaned_data['mean_fractal_dimension']),
-                float(form.cleaned_data['radius_error']),
-                float(form.cleaned_data['texture_error']),
-                float(form.cleaned_data['perimeter_error']),
-                float(form.cleaned_data['area_error']),
-                float(form.cleaned_data['smoothness_error']),
-                float(form.cleaned_data['compactness_error']),
-                float(form.cleaned_data['concavity_error']),
-                float(form.cleaned_data['concave_points_error']),
-                float(form.cleaned_data['symmetry_error']),
-                float(form.cleaned_data['fractal_dimension_error']),
-                float(form.cleaned_data['worst_radius']),
-                float(form.cleaned_data['worst_texture']),
-                float(form.cleaned_data['worst_perimeter']),
-                float(form.cleaned_data['worst_area']),
-                float(form.cleaned_data['worst_smoothness']),
-                float(form.cleaned_data['worst_compactness']),
-                float(form.cleaned_data['worst_concavity']),
-                float(form.cleaned_data['worst_concave_points']),
-                float(form.cleaned_data['worst_symmetry']),
-                float(form.cleaned_data['worst_fractal_dimension'])
+                float(form.cleaned_data['radius_mean']),
+                float(form.cleaned_data['texture_mean']),
+                float(form.cleaned_data['perimeter_mean']),
+                float(form.cleaned_data['area_mean']),
+                float(form.cleaned_data['smoothness_mean']),
+                float(form.cleaned_data['compactness_mean']),
+                float(form.cleaned_data['concavity_mean']),
+                float(form.cleaned_data['concave_points_mean']),
+                float(form.cleaned_data['symmetry_mean']),
+                float(form.cleaned_data['fractal_dimension_mean']),
+                float(form.cleaned_data['radius_se']),
+                float(form.cleaned_data['texture_se']),
+                float(form.cleaned_data['perimeter_se']),
+                float(form.cleaned_data['area_se']),
+                float(form.cleaned_data['smoothness_se']),
+                float(form.cleaned_data['compactness_se']),
+                float(form.cleaned_data['concavity_se']),
+                float(form.cleaned_data['concave_points_se']),
+                float(form.cleaned_data['symmetry_se']),
+                float(form.cleaned_data['fractal_dimension_se']),
+                float(form.cleaned_data['radius_worst']),
+                float(form.cleaned_data['texture_worst']),
+                float(form.cleaned_data['perimeter_worst']),
+                float(form.cleaned_data['area_worst']),
+                float(form.cleaned_data['smoothness_worst']),
+                float(form.cleaned_data['compactness_worst']),
+                float(form.cleaned_data['concavity_worst']),
+                float(form.cleaned_data['concave_points_worst']),
+                float(form.cleaned_data['symmetry_worst']),
+                float(form.cleaned_data['fractal_dimension_worst'])
             ]
+            right_skewed_col = ['area_mean', 'texture_mean', 'perimeter_mean', 'radius_mean', 
+                                'compactness_mean', 'concavity_mean', 'concave points_mean', 
+                                'fractal_dimension_mean', 'area_se', 'texture_se', 'perimeter_se', 
+                                'radius_se', 'compactness_se', 'concavity_se', 'concave points_se', 
+                                'smoothness_se', 'symmetry_se', 'fractal_dimension_se', 'area_worst', 
+                                'texture_worst', 'perimeter_worst', 'radius_worst', 'compactness_worst', 
+                                'concavity_worst', 'concave points_worst', 'symmetry_worst', 'fractal_dimension_worst']
             
+            input_data = pd.DataFrame([input_data])
+            base_path = Path(__file__).resolve().parent.parent.parent
+            scaler_path = base_path / 'Models' / 'Transformations' / 'BreastCancerScaler.pkl'   
+            scaler = joblib.load(scaler_path)
+            input_data[right_skewed_col] = scaler.transform(input_data[right_skewed_col])
+            print(input_data)
+            
+            model = BreastCancerClassifier()
+            model_path = base_path / 'Models' / 'SavedModels' / 'BreastCancerTracker.pth'
+            model.load_state_dict(torch.load(model_path, weights_only=True))
+            
+            prediction, confidence = model.predict(input_data.values, return_confidence=True)
+            if prediction == 1:
+                result = f"Yes, you have signs of having heart disease. Consult with your doctor. Probability Of Having It: {confidence:.2f}%"
+            else:
+                result = f"No, you don't have heart disease. Probability Of Having It: {confidence:.2f}%"
+
+    return render(request, 'BreastCancerTracker.html', {'form': form, 'result': result})

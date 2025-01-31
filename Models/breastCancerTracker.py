@@ -102,7 +102,7 @@ test_dataloader = DataLoader(test_dataset, batch_size=8, shuffle=False)
 
 
 
-class breastCancerModel(nn.Module):
+class BreastCancerClassifier(nn.Module):
     def __init__(self):
         super().__init__()
         self.model = nn.Sequential(
@@ -116,8 +116,19 @@ class breastCancerModel(nn.Module):
     
     def forward(self, x):
         return self.model(x)
+    
+    def predict(self, input_data, return_confidence=False):
+        self.eval()
+        with torch.no_grad():
+            input_tensor = torch.tensor(input_data, dtype=torch.float32)    
+            output = self(input_tensor)
+            confidence = output.item()
+            prediction = 1 if confidence > 0.5 else 0
+            if return_confidence:
+                return prediction, confidence *100
+            return prediction
 
-model = breastCancerModel()
+model = BreastCancerClassifier()
 loss = nn.BCELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 
