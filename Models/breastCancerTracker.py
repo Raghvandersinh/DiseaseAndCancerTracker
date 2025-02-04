@@ -14,9 +14,10 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from Models.HelperFunction import helperFunctions as hp
+import joblib
 
 
-
+basePath = Path(__file__).resolve().parent.parent
 csv_file_path = Path.cwd().parent/'dataset'/'breastCancer'
 
 if csv_file_path.exists():
@@ -50,7 +51,7 @@ X_train, X_test, y_train, y_test = train_test_split(features, target, test_size=
 encoder = LabelEncoder()
 y_train = encoder.fit_transform(y_train)
 y_test = encoder.transform(y_test)
-
+print(y_train[:5])
 
 
 # for col, counts in value_counts.items():
@@ -59,10 +60,14 @@ y_test = encoder.transform(y_test)
 
 
 torch.manual_seed(42)
-
+scaler = PowerTransformer()
 right_skewed_col = ['area_mean', 'texture_mean', 'perimeter_mean', 'radius_mean', 'compactness_mean', 'concavity_mean', 'concave points_mean', 'fractal_dimension_mean', 'area_se', 'texture_se', 'perimeter_se', 'radius_se', 'compactness_se', 'concavity_se', 'concave points_se', 'smoothness_se', 'symmetry_se', 'fractal_dimension_se', 'area_worst', 'texture_worst', 'perimeter_worst', 'radius_worst', 'compactness_worst', 'concavity_worst', 'concave points_worst', 'symmetry_worst', 'fractal_dimension_worst']
-X_train[right_skewed_col]= PowerTransformer().fit_transform(X_train[right_skewed_col])
-X_test[right_skewed_col]= PowerTransformer().fit_transform(X_test[right_skewed_col])
+X_train[right_skewed_col]= scaler.fit_transform(X_train[right_skewed_col])
+X_test[right_skewed_col]= scaler.fit_transform(X_test[right_skewed_col])
+
+scaler_save_path = basePath/'Models'/'Transformations'/'BreastCancerScaler.pkl'
+scaler_save_path.parent.mkdir(parents=True, exist_ok=True)
+joblib.dump(scaler, scaler_save_path)
 
 
 
@@ -97,7 +102,7 @@ test_dataloader = DataLoader(test_dataset, batch_size=8, shuffle=False)
 
 
 
-class breastCancerModel(nn.Module):
+class BreastCancerClassifier(nn.Module):
     def __init__(self):
         super().__init__()
         self.model = nn.Sequential(
@@ -111,8 +116,19 @@ class breastCancerModel(nn.Module):
     
     def forward(self, x):
         return self.model(x)
+    
+    def predict(self, input_data, return_confidence=False):
+        self.eval()
+        with torch.no_grad():
+            input_tensor = torch.tensor(input_data, dtype=torch.float32)    
+            output = self(input_tensor)
+            confidence = output.item()
+            prediction = 1 if confidence > 0.5 else 0
+            if return_confidence:
+                return prediction, confidence *100
+            return prediction
 
-model = breastCancerModel()
+model = BreastCancerClassifier()
 loss = nn.BCELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 
@@ -120,13 +136,14 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 
 
 def train_and_eval():
-    basePath = Path(__file__).resolve().parent.parent
+    
     model_save_path = basePath/'Models'/'SavedModels'/'BreastCancerTracker.pth'
     trained_models, metrics = hp.train_and_evaluate(model,train_dataloader, test_dataloader,loss, optimizer,device, 150, 10, patience=10, save_path=model_save_path)
 
 #125 Epoch and 0.0001 learning rate
 if __name__ == "__main__":
-    train_and_eval() 
+    # train_and_eval() 
+    print("Hello")
 
 
 

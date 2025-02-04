@@ -2,7 +2,7 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
-from .forms import LungCancerForm, HeartDiseaseForm, PneumoniaForm
+from .forms import LungCancerForm, HeartDiseaseForm, PneumoniaForm, BreastCancerForm
 from pathlib import Path
 import torch
 import joblib
@@ -19,6 +19,7 @@ import numpy as np
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from Models.lungcancermodel import LungCancerClassifier
 from Models.heartdiseasetrackermodel import HeartDiseaseClassification
+from Models.breastCancerTracker import BreastCancerClassifier
 
 # Load the trained model
 model_path = Path(__file__).resolve().parent.parent.parent / 'Models' / 'SavedModels' / 'PneumoniaTrackerModel.pth'
@@ -197,3 +198,96 @@ def LungCancerTracker(request):
         form = LungCancerForm()
 
     return render(request, 'LungCancerTrackerModel.html', {'form': form, 'result': result})
+
+def BreastCancerTracker(request):
+    result = None   
+    form = BreastCancerForm()  # Initialize the form before the 'if' block
+    
+    if request.method == 'POST':
+        form = BreastCancerForm(request.POST)  # reinitialize form with POST data
+        if form.is_valid():
+            # Create a dictionary with feature names as keys and the input values as floats
+            input_data = {
+                'radius_mean': float(form.cleaned_data['radius_mean']),
+                'texture_mean': float(form.cleaned_data['texture_mean']),
+                'perimeter_mean': float(form.cleaned_data['perimeter_mean']),
+                'area_mean': float(form.cleaned_data['area_mean']),
+                'smoothness_mean': float(form.cleaned_data['smoothness_mean']),
+                'compactness_mean': float(form.cleaned_data['compactness_mean']),
+                'concavity_mean': float(form.cleaned_data['concavity_mean']),
+                'concave_points_mean': float(form.cleaned_data['concave_points_mean']),
+                'symmetry_mean': float(form.cleaned_data['symmetry_mean']),
+                'fractal_dimension_mean': float(form.cleaned_data['fractal_dimension_mean']),
+                'radius_se': float(form.cleaned_data['radius_se']),
+                'texture_se': float(form.cleaned_data['texture_se']),
+                'perimeter_se': float(form.cleaned_data['perimeter_se']),
+                'area_se': float(form.cleaned_data['area_se']),
+                'smoothness_se': float(form.cleaned_data['smoothness_se']),
+                'compactness_se': float(form.cleaned_data['compactness_se']),
+                'concavity_se': float(form.cleaned_data['concavity_se']),
+                'concave_points_se': float(form.cleaned_data['concave_points_se']),
+                'symmetry_se': float(form.cleaned_data['symmetry_se']),
+                'fractal_dimension_se': float(form.cleaned_data['fractal_dimension_se']),
+                'radius_worst': float(form.cleaned_data['radius_worst']),
+                'texture_worst': float(form.cleaned_data['texture_worst']),
+                'perimeter_worst': float(form.cleaned_data['perimeter_worst']),
+                'area_worst': float(form.cleaned_data['area_worst']),
+                'smoothness_worst': float(form.cleaned_data['smoothness_worst']),
+                'compactness_worst': float(form.cleaned_data['compactness_worst']),
+                'concavity_worst': float(form.cleaned_data['concavity_worst']),
+                'concave_points_worst': float(form.cleaned_data['concave_points_worst']),
+                'symmetry_worst': float(form.cleaned_data['symmetry_worst']),
+                'fractal_dimension_worst': float(form.cleaned_data['fractal_dimension_worst']),
+            }
+            
+            # Replace only the underscore between 'concave' and 'points' in specific columns
+            columns_to_replace = ['concave_points_mean', 'concave_points_se', 'concave_points_worst']
+            input_data = {
+                key.replace('concave_points', 'concave points') if key in columns_to_replace else key: value
+                for key, value in input_data.items()
+            }
+
+            right_skewed_col = ['area_mean', 'texture_mean', 'perimeter_mean', 'radius_mean', 
+                                'compactness_mean', 'concavity_mean', 'concave points_mean', 
+                                'fractal_dimension_mean', 'area_se', 'texture_se', 'perimeter_se', 
+                                'radius_se', 'compactness_se', 'concavity_se', 'concave points_se', 
+                                'smoothness_se', 'symmetry_se', 'fractal_dimension_se', 'area_worst', 
+                                'texture_worst', 'perimeter_worst', 'radius_worst', 'compactness_worst', 
+                                'concavity_worst', 'concave points_worst', 'symmetry_worst', 'fractal_dimension_worst']
+            
+            # Convert input_data to DataFrame with the correct column names
+            input_data_df = pd.DataFrame([input_data], columns=input_data.keys())
+            print("Columns in input_data_df:", input_data_df.columns)
+
+            # Check if all right_skewed_col columns exist in input_data_df
+            missing_columns = [col for col in right_skewed_col if col not in input_data_df.columns]
+            if missing_columns:
+                print(f"Missing columns: {missing_columns}")
+                return f"Error: Missing columns: {missing_columns}"
+
+            # Load the scaler
+            base_path = Path(__file__).resolve().parent.parent.parent
+            scaler_path = base_path / 'Models' / 'Transformations' / 'BreastCancerScaler.pkl'   
+            scaler = joblib.load(scaler_path)
+
+            # Only transform the columns in 'right_skewed_col'
+            input_data_transformed = scaler.transform(input_data_df[right_skewed_col])
+
+            # The transformed data needs to be updated back to the original data structure if necessary
+            input_data_df[right_skewed_col] = input_data_transformed
+
+            # Load the model
+            model = BreastCancerClassifier()
+            model_path = base_path / 'Models' / 'SavedModels' / 'BreastCancerTracker.pth'
+            model.load_state_dict(torch.load(model_path, weights_only=True))
+
+            # Predict using the transformed data
+            prediction, confidence = model.predict(input_data_df.values, return_confidence=True)
+            
+            if prediction == 1:
+                result = f"You have Benign Tumors. Probability Of Having It: {confidence:.2f}%"
+            else:
+                result = f"You have Malignant Tumors. Probability Of Having It: {confidence:.2f}%"
+
+    return render(request, 'BreastCancerTracker.html', {'form': form, 'result': result})
+

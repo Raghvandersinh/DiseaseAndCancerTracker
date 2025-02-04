@@ -1,7 +1,7 @@
 {% extends "base.html" %} 
 {% load static %}
 {% block content %}
-<h1 class="title">Heart Disease Tracker</h1>
+<h1 class="title">Breast Cancer Tracker</h1>
 <div class="form-container">
     <form method="post">
         {% csrf_token %}
@@ -12,7 +12,7 @@
 {% if result %}
 <div class="result-container">
     <h2 class="result-title">Prediction:</h2>
-    <p class="result-message {% if 'No' in result %}no-heartdisease{% else %}yes-heartdisease{% endif %}">{{ result }}</p>
+    <p class="result-message {% if 'No' in result %}no-cancer{% else %}yes-cancer{% endif %}">{{ result }}</p>
 </div>
 {% endif %}
 {% endblock %}
@@ -20,15 +20,15 @@
 {% block extra_css %}
 <style>
     body {
-        background-image: url("{% static 'Images/HeartDiseaseBackground.jpg' %}");
+        background-image: url("{% static 'Images/BreastCancerBackground.jpg' %}");
         background-size: 90% 100%;
-        background-position: center -100px;
+        background-position: center -120px;
         background-repeat: no-repeat;
         background-attachment: fixed;
     }
     .title {
         text-align: center;
-        color:rgb(183, 63, 73);
+        color: #FF69B4;
         font-family: 'Arial', sans-serif;
     }
     .form-container {
@@ -39,15 +39,16 @@
         margin-top: 20px;
     }
     form {
-        background-color:rgb(244, 227, 229, 0.8);
+        background-color: #f9f9f9;
+        padding: 20px;
+        border-radius: 10px;
+        background-color: rgba(255, 255, 255, 0.85);  /* White background with 85% opacity */
         padding: 20px;
         border-radius: 10px;
         box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        padding: 20px;
-        border-radius: 10px;
     }
     .submit-button {
-        background-color: rgb(183, 63, 73);;
+        background-color: #FF69B4;
         color: white;
         border: none;
         padding: 10px 20px;
@@ -56,7 +57,7 @@
         font-size: 16px;
     }
     .submit-button:hover {
-        background-color: rgb(183, 63, 73);;
+        background-color: #FF1493;
     }
     .result-container {
         text-align: center;
@@ -67,17 +68,17 @@
         box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
     }
     .result-title {
-        color: rgb(183, 63, 73);;
+        color: #FF69B4;
         font-size: 24px;
         font-weight: bold;
     }
     .result-message {
         font-size: 18px;
     }
-    .result-message.no-heartdisease {
+    .result-message.no-cancer {
         color: green;
     }
-    .result-message.yes-heartdisease {
+    .result-message.yes-cancer {
         color: red;
     }
 </style>

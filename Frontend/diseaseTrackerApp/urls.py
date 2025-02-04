@@ -8,6 +8,7 @@ urlpatterns = [
     path("LungCancerTracker/", views.LungCancerTracker, name="LungCancerTracker"),
     path("HeartDiseaseTracker/", views.HeartDiseaseTracker, name="HeartDiseaseTracker"),
     path("PneumoniaTracker/", views.PneumoniaTracker, name="PneumoniaTracker"),
+    path("BreastCancerTracker/", views.BreastCancerTracker, name="BreastCancerTracker"),
     path("upload/", views.upload_image, name="upload_image"),
 ]
 

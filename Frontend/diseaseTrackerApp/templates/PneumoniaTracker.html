@@ -1,25 +1,62 @@
-<!-- filepath: /c:/MLProject/DiseaseAndCancerTracker/Frontend/diseaseTrackerApp/templates/PneumoniaTracker.html -->
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}
     PneumoniaTracker
 {% endblock %}
 
+{% block extra_css %}
+<style>
+    body {
+        background-image: url("{% static 'Images/PneumoniaBackground.jpg' %}");
+        background-size: contain; /* Ensures the image fits without distortion */
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+        background-position: center;
+    }
+    .card {
+        background-color: rgba(255, 255, 255, 0.8);
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-    <h1>PneumoniaTracker</h1>
-    <p>Upload an X-ray image to classify if it shows signs of pneumonia.</p>
-    
-    <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit" class="btn btn-primary">Upload</button>
-    </form>
-    
-    <div id="result" class="mt-3">
-        {% if image_url %}
-            <h3>Uploaded X-ray Image:</h3>
-            <img src="{{ image_url }}" alt="Uploaded X-ray Image" class="img-fluid">
-            <h3>Prediction: {{ prediction }}</h3>
-        {% endif %}
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h1 class="card-title">PneumoniaTracker</h1>
+            <p class="card-text">Upload an X-ray image to classify if it shows signs of pneumonia.</p>
+            
+            <form method="post" enctype="multipart/form-data" id="upload-form">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button type="submit" class="btn btn-primary">Upload</button>
+            </form>
+            
+            <div id="result" class="mt-3">
+                <h3>Uploaded X-ray Image:</h3>
+                <img id="preview-image" src="#" alt="Uploaded X-ray Image" class="img-fluid rounded shadow-sm" style="display: none;">
+                <h3 class="mt-3">Prediction: <span id="prediction" class="badge badge-info">{{ prediction }}</span></h3>
+            </div>
+        </div>
     </div>
+
+    <script>
+        document.getElementById('upload-form').addEventListener('change', function(event) {
+            var input = event.target;
+            if (input.files && input.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    var previewImage = document.getElementById('preview-image');
+                    previewImage.src = e.target.result;
+                    previewImage.style.display = 'block';
+
+                    // Clear the previous prediction
+                    var predictionElement = document.getElementById('prediction');
+                    predictionElement.textContent = '';
+                    predictionElement.classList.remove('badge-info');
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        });
+    </script>
 {% endblock %}
