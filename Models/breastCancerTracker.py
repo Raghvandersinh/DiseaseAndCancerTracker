@@ -51,7 +51,7 @@ X_train, X_test, y_train, y_test = train_test_split(features, target, test_size=
 encoder = LabelEncoder()
 y_train = encoder.fit_transform(y_train)
 y_test = encoder.transform(y_test)
-
+print(y_train[:5])
 
 
 # for col, counts in value_counts.items():
