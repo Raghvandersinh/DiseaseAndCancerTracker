@@ -14,6 +14,7 @@ import base64
 from PIL import Image
 from torchvision import transforms, models
 import numpy as np
+import random
 
 # Add the Models directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
@@ -25,7 +26,7 @@ from Models.breastCancerTracker import BreastCancerClassifier
 model_path = Path(__file__).resolve().parent.parent.parent / 'Models' / 'SavedModels' / 'PneumoniaTrackerModel.pth'
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = models.resnet34(weights=models.ResNet34_Weights.IMAGENET1K_V1).to(device)
-model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
+model.load_state_dict(torch.load(model_path, map_location='cpu', weights_only=True))
 model.eval()
 
 # Define the image transformations
@@ -124,7 +125,7 @@ def HeartDiseaseTracker(request):
                 # Load the model and make the prediction
                 model = HeartDiseaseClassification()
                 model_path = base_path / 'Models' / 'SavedModels' / 'HeartDiseaseModel.pth'
-                model.load_state_dict(torch.load(model_path, weights_only=True))
+                model.load_state_dict(torch.load(model_path, weights_only=True, map_location='cpu'))
 
                 prediction, confidence = model.predict(input_data, return_confidence=True)
                 if prediction == 1:
@@ -187,7 +188,7 @@ def LungCancerTracker(request):
             # Make the prediction
             model = LungCancerClassifier()
             model_path = base_path / 'Models' / 'SavedModels' / 'lung_cancer_model.pth'
-            model.load_state_dict(torch.load(model_path, weights_only=True))
+            model.load_state_dict(torch.load(model_path, weights_only=True, map_location='cpu'))
             prediction, confidence = model.predict(input_data, return_confidence=True)
 
             if prediction == 1:
@@ -279,7 +280,7 @@ def BreastCancerTracker(request):
             # Load the model
             model = BreastCancerClassifier()
             model_path = base_path / 'Models' / 'SavedModels' / 'BreastCancerTracker.pth'
-            model.load_state_dict(torch.load(model_path, weights_only=True))
+            model.load_state_dict(torch.load(model_path, weights_only=True, map_location='cpu'))
 
             # Predict using the transformed data
             prediction, confidence = model.predict(input_data_df.values, return_confidence=True)
@@ -287,7 +288,7 @@ def BreastCancerTracker(request):
             if prediction == 1:
                 result = f"You have Benign Tumors. Probability Of Having It: {confidence:.2f}%"
             else:
-                result = f"You have Malignant Tumors. Probability Of Having It: {confidence:.2f}%"
+                result = f"You have Malignant Tumors. Probability Of Having It: {100 - confidence:.2f}%"
 
     return render(request, 'BreastCancerTracker.html', {'form': form, 'result': result})
 
