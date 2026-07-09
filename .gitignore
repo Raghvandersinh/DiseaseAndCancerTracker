@@ -1,2 +1,4 @@
 /dataset/
 /Frontend/Frontend/static/
+Frontend/staticfiles
+__pycache__
