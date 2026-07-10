@@ -12,10 +12,10 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 import os
 from pathlib import Path
-
+import sys
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
+sys.path.append(os.path.join(BASE_DIR, 'Frontend'))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -26,11 +26,12 @@ SECRET_KEY = "django-insecure-g3r70v!pxg%ki^8!pm#3b_db+k#+daltl9_&v4grt6oah0tu-!
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [
-    BASE_DIR / "Frontend/static",
+    os.path.join(BASE_DIR, 'static'),    
 ]
 # Application definition
 
@@ -54,7 +55,14 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "Frontend.urls"
+IN_DOCKER = os.path.exists('/.dockerenv') or os.environ.get('DOCKER_CONTAINER')
+
+if IN_DOCKER:
+    ROOT_URLCONF = 'Frontend.Frontend.urls'
+    # Also set DJANGO_SETTINGS_MODULE correctly
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'Frontend.Frontend.settings'
+else:
+    ROOT_URLCONF = 'Frontend.urls'
 
 TEMPLATES = [
     {
