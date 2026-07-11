@@ -18,7 +18,7 @@ import joblib
 
 
 basePath = Path(__file__).resolve().parent.parent
-csv_file_path = Path.cwd().parent/'dataset'/'breastCancer'
+csv_file_path = basePath / 'dataset' / 'breastCancer'
 
 if csv_file_path.exists():
     print(f"Folder already exists at: {csv_file_path}")

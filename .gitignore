@@ -1,5 +1,4 @@
 /dataset/
-/Frontend/Frontend/static/
 Frontend/staticfiles
 __pycache__
 token.txt
